@@ -1,13 +1,52 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>HTML 5 Boilerplate</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>The Obelisk — QRCodedLife</title>
+    <meta
+      name="description"
+      content="Navigable 3D obelisk. Tap a QR code to open its own page."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath fill='%23111' d='M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/obelisk.css" />
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./assets/vendor/three/three.module.min.js",
+          "three/addons/controls/OrbitControls.js": "./assets/vendor/three/OrbitControls.js"
+        }
+      }
+    </script>
   </head>
   <body>
-    IML
+    <div class="stage">
+      <canvas class="stage__canvas" id="scene"></canvas>
+      <div class="stage__status" id="status">Loading the obelisk…</div>
+    </div>
+
+    <div class="hud">
+      <div class="hud__topbar">
+        <span class="hud__title">QRCodedLife · The Obelisk</span>
+      </div>
+
+      <div class="hud__controls">
+        <button class="btn btn--icon" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button class="btn btn--icon" id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
+        <button class="btn btn--icon" id="reset-view" type="button" aria-label="Reset view">&#8635;</button>
+      </div>
+
+      <p class="hud__hint" id="hint">Tap a QR code to open its page</p>
+    </div>
+
+    <script type="module" src="assets/js/obelisk/main.js"></script>
   </body>
 </html>

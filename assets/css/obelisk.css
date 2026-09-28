@@ -1,0 +1,151 @@
+/* ==========================================================================
+   obelisk.css — Prototype 1: full-viewport 3D canvas + overlay HUD
+   ========================================================================== */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* the 3D stage is always the cream "poster" look, so pin the HUD chips to a
+   light palette regardless of the viewer's system theme */
+.stage,
+.hud {
+  --fg: #241a30;
+  --fg-muted: #6b6478;
+  --bg-elevated: #fffdf8;
+  --border: #e0d7c6;
+  --shadow: 0 6px 20px rgba(60, 40, 70, 0.18);
+  color-scheme: light;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(125% 125% at 50% 12%, #fbf7ee 0%, #ece2d0 72%);
+}
+
+.stage__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* let OrbitControls own the gesture */
+}
+
+/* ---- overlay HUD --------------------------------------------------------- */
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* only children opt back in */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.hud__topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+}
+
+.hud__back {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  color: var(--fg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.hud__back:hover {
+  border-color: var(--accent);
+}
+
+.hud__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud__controls {
+  position: absolute;
+  right: 1.15rem;
+  bottom: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hud__controls .btn {
+  pointer-events: auto;
+  box-shadow: var(--shadow);
+}
+
+.hud__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 1.4rem;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  box-shadow: var(--shadow);
+  transition: opacity 0.4s ease;
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+}
+
+.hud__hint[hidden] {
+  display: block; /* keep layout, fade instead of pop */
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .hud__controls {
+    right: 0.9rem;
+    bottom: 0.9rem;
+  }
+
+  .hud__hint {
+    bottom: 1rem;
+    left: 0.9rem;
+    right: 4.6rem; /* stop short of the control stack */
+    transform: none;
+    max-width: none;
+  }
+}
+
+/* loading / error states */
+.stage__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+}
+
+.stage__status[hidden] {
+  display: none;
+}
