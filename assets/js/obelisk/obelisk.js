@@ -3,15 +3,14 @@
    poster: a dark 3-sided shaft on a stepped plinth, capped by a pyramidion.
 
    The 3 shaft faces are not identical:
-     Face 1 — a bespoke 490mm x 460mm rectangle: reliability-qr stretched
-               full width across the bottom third, anatomy-qr and
-               contrast-qr side by side above it. See layoutFace1() for
+     Face 1 — a bespoke 490mm x 460mm rectangle: reliable stretched
+               full width across the bottom third, anatomy and
+               contrast side by side above it. See layoutFace1() for
                the exact geometry.
      Face 2 — to the right of face 1 — a bespoke 490mm x 1270mm vertical
                column of 6 QR codes, stacked top to bottom: tiles,
-               handwritten, lenticular (centre view only, for now),
-               perspective, color, scam. See layoutFace2() for the exact
-               geometry.
+               handdrawn, lens-c (centre view only, for now), angle,
+               color, scam. See layoutFace2() for the exact geometry.
      Face 3 — blank. No panels, no QR codes; just the bare shaft colour.
 
    buildObelisk() -> {
@@ -59,7 +58,7 @@ const CARD_RADIUS = 0.028;
 //              layoutFace2)
 //   "blank"  — no panels at all (face 3)
 const FACE_LAYOUTS = [
-  { type: "face1" }, // face 1 — anatomy-qr, contrast-qr, reliability-qr
+  { type: "face1" }, // face 1 — anatomy, contrast, reliable
   { type: "face2" }, // face 2 — to the right: 6 QR codes, vertical column
   { type: "blank" }, // face 3 — blank, no QR codes
 ];
@@ -67,9 +66,9 @@ const FACE_LAYOUTS = [
 // ---- fixed physical envelopes, in metres (1mm = 0.001m) -----------------
 const MM = 0.001;
 
-// face 1: a 490mm x 460mm rectangle, centred on the face. reliability-qr
-// stretches full width across the bottom third; anatomy-qr and
-// contrast-qr sit side by side across the top two-thirds.
+// face 1: a 490mm x 460mm rectangle, centred on the face. reliable
+// stretches full width across the bottom third; anatomy and
+// contrast sit side by side across the top two-thirds.
 const F1_RECT_W = 490 * MM; // == PANEL_W (600 - 55*2)
 const F1_RECT_H = 460 * MM;
 const F1_RELIABILITY_H = F1_RECT_H / 3;
@@ -77,8 +76,8 @@ const F1_PAIR_H = F1_RECT_H - F1_RELIABILITY_H - PANEL_GAP;
 const F1_PAIR_W = (F1_RECT_W - PANEL_GAP) / 2;
 
 // face 2: a 490mm x 1270mm column centred on the face, 6 equal full-width
-// rows stacked top to bottom — tiles-qr, handwritten-qr, lenticular-qr
-// (centre view only, for now), perspective-qr, color-qr, scam-qr.
+// rows stacked top to bottom — tiles, handdrawn, lens-c
+// (centre view only, for now), angle, color, scam.
 const F2_COLUMN_W = 490 * MM;
 const F2_COLUMN_H = 1270 * MM;
 const F2_ROWS = 6;
@@ -231,15 +230,15 @@ function makePanel(qrId, w, h, color, align, seed, framed) {
 }
 
 /* ---- face 1's bespoke rectangle --------------------------------------
-   A 490mm x 460mm rectangle centred on the face: reliability-qr stretched
-   full width across the bottom third, anatomy-qr and contrast-qr side by
+   A 490mm x 460mm rectangle centred on the face: reliable stretched
+   full width across the bottom third, anatomy and contrast side by
    side across the top two-thirds.
    ------------------------------------------------------------------- */
 function layoutFace1(faceIndex, qrTargets) {
   const group = new THREE.Group();
 
-  // n is the panel's fixed qrId index (0 = anatomy-qr, 1 = contrast-qr,
-  // 2 = reliability-qr) -> qrId face1-(n+1).
+  // n is the panel's fixed qrId index (0 = anatomy, 1 = contrast,
+  // 2 = reliable) -> qrId face1-(n+1).
   const addPanel = (n, w, h, x, y) => {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
     const color = PALETTE[(faceIndex * 2 + n) % PALETTE.length];
@@ -255,22 +254,22 @@ function layoutFace1(faceIndex, qrTargets) {
   const reliabilityY = top - F1_PAIR_H - PANEL_GAP - F1_RELIABILITY_H / 2;
   const pairX = F1_PAIR_W / 2 + PANEL_GAP / 2;
 
-  addPanel(0, F1_PAIR_W, F1_PAIR_H, -pairX, pairY); // anatomy-qr
-  addPanel(1, F1_PAIR_W, F1_PAIR_H, pairX, pairY); // contrast-qr
-  addPanel(2, F1_RECT_W, F1_RELIABILITY_H, 0, reliabilityY); // reliability-qr
+  addPanel(0, F1_PAIR_W, F1_PAIR_H, -pairX, pairY); // anatomy
+  addPanel(1, F1_PAIR_W, F1_PAIR_H, pairX, pairY); // contrast
+  addPanel(2, F1_RECT_W, F1_RELIABILITY_H, 0, reliabilityY); // reliable
 
   return group;
 }
 
 /* ---- face 2's bespoke vertical column -------------------------------
    A 490mm x 1270mm column centred on the face: 6 equal full-width rows,
-   stacked top to bottom — tiles-qr, handwritten-qr, lenticular-qr (centre
-   view only, for now), perspective-qr, color-qr, scam-qr.
+   stacked top to bottom — tiles, handdrawn, lens-c (centre
+   view only, for now), angle, color, scam.
    ------------------------------------------------------------------- */
 function layoutFace2(faceIndex, qrTargets) {
   const group = new THREE.Group();
 
-  // n is the panel's fixed qrId index (0 = tiles-qr, 5 = scam-qr) ->
+  // n is the panel's fixed qrId index (0 = tiles, 5 = scam) ->
   // qrId face2-(n+1).
   const addPanel = (n, y) => {
     const qrId = `face${faceIndex + 1}-${n + 1}`;

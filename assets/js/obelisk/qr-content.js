@@ -3,19 +3,19 @@
 
    This is the file to edit when writing real copy.
    Keys map to the panels on the obelisk:
-     face1-1  anatomy-qr
-     face1-2  contrast-qr
-     face1-3  reliability-qr
-     face2-1  tiles-qr
-     face2-2  handwritten-qr
-     face2-3  lenticular-qr-center
-     face2-4  perspective-qr
-     face2-5  color-qr
-     face2-6  scam-qr
+     face1-1  anatomy
+     face1-2  contrast
+     face1-3  reliable
+     face2-1  tiles
+     face2-2  handdrawn
+     face2-3  lens-c
+     face2-4  angle
+     face2-5  color
+     face2-6  scam
 
-   lenticular-left / lenticular-right have no obelisk panel yet (see
-   routes.js) but still need copy for their standalone pages, keyed by
-   their own slug rather than a faceN-M id.
+   lens-l / lens-r have no obelisk panel yet (see routes.js) but still
+   need copy for their standalone pages, keyed by their own slug rather
+   than a faceN-M id.
 
    Each entry: { eyebrow, title, body, image }
      eyebrow — small label above the title
@@ -84,13 +84,13 @@ export const qrContent = {
   },
 
   // ---- Standalone, not yet wired to a panel -----------------------------
-  "lenticular-left": {
+  "lens-l": {
     eyebrow: "Lenticular · left",
     title: "Lenticular illusion — left",
     body: "Viewed from the left, this lenticular panel reveals a different code than from the centre or right. Placeholder copy.",
     image: null,
   },
-  "lenticular-right": {
+  "lens-r": {
     eyebrow: "Lenticular · right",
     title: "Lenticular illusion — right",
     body: "Viewed from the right, the panel shifts again to its third and final image. Placeholder copy.",

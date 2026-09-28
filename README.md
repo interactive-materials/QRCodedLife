@@ -7,12 +7,10 @@ active QR code links to its own page. No build step.
 
 ```
 index.html                 the obelisk scene
-anatomy-qr/, contrast-qr/, reliability-qr/
+anatomy/, contrast/, reliable/
                             face 1's 3 pages
-tiles-qr/, handwritten-qr/,
-lenticular-qr-left/, lenticular-qr-center/, lenticular-qr-right/,
-perspective-qr/, color-qr/, scam-qr/
-                            face 2's 8 pages
+tiles/, handdrawn/, lens-c/, lens-l/, lens-r/, angle/, color/, scam/
+                            face 2's pages (lens-l/lens-r not yet linked)
 assets/css/                base.css (shared) + obelisk.css (3D stage/HUD)
 assets/js/obelisk/
   obelisk.js                  builds the 3D obelisk + its faces/panels
@@ -27,18 +25,17 @@ assets/vendor/three/        pinned Three.js + OrbitControls (only dependency)
 
 Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
 
-- **Face 1** — 3 active QR codes, stacked vertically: `anatomy-qr`,
-  `contrast-qr`, `reliability-qr`.
+- **Face 1** — a 490mm x 460mm rectangle, centred on the face: `anatomy`
+  and `contrast` side by side across the top two-thirds, `reliable`
+  stretched full width across the bottom third.
 - **Face 2** — to the right of face 1 — a 490mm x 1270mm vertical column,
-  centred on the face, of 8 equal full-width rows stacked top to bottom:
-  `tiles-qr`, `handwritten-qr`, `lenticular-qr-left`, `lenticular-qr-center`,
-  `lenticular-qr-right`, `perspective-qr`, `color-qr`, `scam-qr`.
+  centred on the face, of 6 equal full-width rows stacked top to bottom:
+  `tiles`, `handdrawn`, `lens-c`, `angle`, `color`, `scam`.
 
-  The 3 lenticular pages share one physical panel — for now only
-  `lenticular-qr-center` renders and links; `lenticular-qr-left` and
-  `lenticular-qr-right` stay reserved as blank, unclickable space until the
-  lenticular viewing-angle effect is implemented (see `F2_ROW_ACTIVE` in
-  [`obelisk.js`](assets/js/obelisk/obelisk.js)).
+  The 3 lenticular pages share one physical panel — for now only `lens-c`
+  renders and links; `lens-l` and `lens-r` exist as standalone pages but
+  have no obelisk panel until the lenticular viewing-angle effect is
+  implemented (see `routes.js`).
 - **Face 3** — blank, no QR codes.
 
 Drag / one-finger to orbit, scroll / pinch or the on-screen buttons to zoom,
