@@ -8,14 +8,14 @@
      face1-3  reliable
      face2-1  tiles
      face2-2  handdrawn
-     face2-3  lens-c
+     face2-3  lens-c   (lenticular panel's centre view)
      face2-4  angle
      face2-5  color
      face2-6  scam
 
-   lens-l / lens-r have no obelisk panel yet (see routes.js) but still
-   need copy for their standalone pages, keyed by their own slug rather
-   than a faceN-M id.
+   lens-l / lens-r are the lenticular panel's left / right views (see
+   routes.js); their copy is keyed by their own slug rather than a faceN-M
+   id.
 
    Each entry: { eyebrow, title, body, image }
      eyebrow — small label above the title

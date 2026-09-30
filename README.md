@@ -40,9 +40,16 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
   implemented (see `routes.js`).
 - **Face 3** — blank, no QR codes.
 
-Drag / one-finger to orbit; mouse wheel, trackpad swipe or two-finger drag
-to scroll up and down the obelisk; pinch or the on-screen buttons to zoom;
+Drag / one-finger to orbit; right-drag (or shift-drag) or two-finger drag
+to pan up/down and side to side; mouse wheel, pinch or the on-screen
+buttons to zoom (toward the point under the cursor, right up to a panel);
 tap a QR code to open its page.
+
+The `angle` panel is a 3D perspective QR prism (ported from the
+PerspectiveQR-Generator, see `assets/js/obelisk/perspective-prism.js`).
+Its QR only lines up from its scan point, 150mm straight out from the
+face, so it stays dimmed and unclickable until the camera is there, then
+lights up. Zoom in on it and orbit round to face it square-on.
 
 All page copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
 

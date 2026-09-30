@@ -3,12 +3,13 @@
 
    Face 1 has 3 active QR codes: anatomy, contrast, reliable. Face 2, to
    the right of face 1, has 6 active QR codes of varying size zig-zagging
-   down the face: tiles, handdrawn, angle, lens-c (centre view only, for
-   now), color, scam. Face 3 is blank and has none.
+   down the face: tiles, handdrawn, angle, lens, color, scam. Face 3 is
+   blank and has none.
 
-   lens-l and lens-r exist as standalone pages but have no obelisk panel
-   yet — they share one physical spot with lens-c and aren't wired up here
-   until that's ready.
+   The lens panel (face2-3) is a lenticular QR: seen from the left, centre
+   or right it shows lens-l, lens-c or lens-r, and a click opens that
+   view's page (the panel's userData.slug overrides the lens-c entry
+   here, which stays as its default / centre view).
    ========================================================================== */
 
 export const pageRoutes = {

@@ -9,8 +9,9 @@
                geometry.
      Face 2 — to the right of face 1 — a bespoke 490mm x 1270mm column
                of 6 QR codes of varying size, zig-zagging top to bottom:
-               tiles, handdrawn, angle, lens-c (centre view only, for
-               now), color, scam. Positions follow the Artboard 5
+               tiles, handdrawn, angle (a 3D perspective QR prism — see
+               perspective-prism.js), lens (a lenticular QR: lens-l /
+               lens-c / lens-r by viewing angle), color, scam. Positions follow the Artboard 5
                artwork. See layoutFace2() for the exact geometry.
      Face 3 — blank. No panels, no QR codes; just the bare shaft colour.
 
@@ -18,14 +19,26 @@
      group,      THREE.Group   (add to the scene; centred on the origin)
      qrTargets,  Array<Mesh>   (raycaster targets — the 9 panels)
      height,     number        (full silhouette height in metres, for framing)
-     fontsReady, Promise       (resolves once text textures are redrawn in
-                                their web font; re-render then)
+     assetsReady, Promise      (resolves once text textures are redrawn in
+                                their web font and image panels have
+                                loaded; re-render then)
+     update,     (camera, dt) => bool
+                               (call every frame: updates camera-dependent
+                                state — the angle prism's scannable look,
+                                the lenticular panel's view; true while
+                                still animating)
    }
 
    World units are metres.
    ========================================================================== */
 
 import * as THREE from "three";
+import {
+  buildPerspectivePrism,
+  PRISM,
+  setPrismHover,
+  updatePrismScan,
+} from "./perspective-prism.js";
 
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
@@ -99,7 +112,17 @@ const F2_TILE_CHIP_MARGIN = 5 * MM;
 const F2_TILES = [[-1, -1], [1, -1], [-2, 0], [0, 0], [-1, 1], [1, 1], [-2, 2]];
 
 // the rectangular panels, by qrId index (face2-(n+1)). caption: a
-// 100mm x 20mm white label at [x, y], attached to that panel.
+// 100mm x 20mm white label at [x, y], attached to that panel. art: the
+// panel is artwork images instead of a coloured card — a frame image
+// filling the panel, optionally with a QR image at qrBox [x, y, size] (mm
+// from the panel's top-left, measured on the artboard). card: the panel is
+// a plain white card as on the artboard — corner radius in mm (0 = square),
+// with a QR at qrBox [x, y, size] (mm, the modules' extent): the image at
+// `qr` (qrFrac: share of its width that is modules, the rest being its
+// white margin), or a placeholder QR when there is none yet — or, with
+// `lenticular`, one QR per viewing angle (see makeLenticular). prism: the
+// panel is the 3D perspective QR prism (perspective-prism.js) instead of a
+// flat card — its footprint is PRISM.W x PRISM.L, i.e. 210mm x 160mm.
 const F2_CAPTION_W = 100 * MM;
 const F2_CAPTION_H = 20 * MM;
 const F2_TILES_CAPTION = [100, 225];
@@ -132,11 +155,45 @@ const F2_CREDITS = {
   ],
 };
 const F2_PANELS = [
-  { n: 1, x: 290, y: 250, w: 200, h: 220 }, // handdrawn
-  { n: 2, x: 280, y: 615, w: 180, h: 150 }, // lens-c
-  { n: 3, x: 5, y: 430, w: 210, h: 160, caption: [5, 600] }, // angle
-  { n: 4, x: 70, y: 781, w: 150, h: 195 }, // color
-  { n: 5, x: 315, y: 990, w: 148, h: 210 }, // scam
+  {
+    n: 1, x: 290, y: 250, w: 200, h: 220, // handdrawn
+    card: { radius: 0, qrBox: [11.6, 10.3, 177], qr: null },
+  },
+  {
+    n: 2, x: 280, y: 615, w: 180, h: 150, // lens (lenticular: l / c / r)
+    card: {
+      radius: 5,
+      qrBox: [31.7, 12.7, 114],
+      qrFrac: 926 / 1000,
+      lenticular: {
+        // left to right, as seen moving round the panel from its left
+        views: [
+          { slug: "lens-l", qr: "lens-l/assets/lens-l.png", frame: "lens-l/assets/frame1.png" },
+          { slug: "lens-c", qr: "lens-c/assets/lens-c.png", frame: "lens-c/assets/frame2.png" },
+          { slug: "lens-r", qr: "lens-r/assets/lens-r.png", frame: "lens-r/assets/frame3.png" },
+        ],
+        spreadDeg: 30, // views split the angles -30..+30deg evenly; beyond, the end views
+        circleFrac: 0.165, // centre circle diameter / QR image width
+      },
+    },
+  },
+  { n: 3, x: 5, y: 430, w: PRISM.W * 10, h: PRISM.L * 10, caption: [5, 600], prism: true }, // angle
+  {
+    n: 4, x: 70, y: 781, w: 150, h: 195, // color
+    art: {
+      frame: "color/assets/frame_color.png",
+      qr: "color/assets/qr-color.png",
+      qrBox: [30.3, 51.2, 89.3],
+    },
+  },
+  // scam: the poster image is the whole panel. Its proportions
+  // (1955 x 2609px) don't match the artboard's 148 x 210mm slot, so it is
+  // fitted to the slot's width, keeping its aspect, and centred in the slot
+  // height: 148 x 197.5mm.
+  {
+    n: 5, x: 315, y: 996.25, w: 148, h: 197.5, // scam
+    art: { frame: "scam/assets/DDQRV2.png" },
+  },
 ];
 
 // poster-ish palette: pink / cyan / yellow / violet / teal
@@ -217,6 +274,7 @@ function makeQrTexture(seed, framed) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  tex.userData.moduleFrac = modules / cells; // share of the width that is modules
   return tex;
 }
 
@@ -382,6 +440,172 @@ function makeCredits(c) {
   return { mesh, ready };
 }
 
+/* ---- artwork panel (frame image + optional QR image) ----------------
+   A w x h plane showing `art.frame` (transparency kept), with `art.qr`,
+   if given, laid on top at art.qrBox. Image paths are relative to the
+   site root. Hidden until the images load; the returned promise resolves
+   then.
+   ------------------------------------------------------------------- */
+const SITE_ROOT = new URL("../../../", import.meta.url);
+const textureLoader = new THREE.TextureLoader();
+
+function loadTexture(path, pixelated) {
+  return textureLoader.loadAsync(new URL(path, SITE_ROOT).href).then((tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    // keep the QR's modules crisp when seen up close
+    if (pixelated) tex.magFilter = THREE.NearestFilter;
+    return tex;
+  });
+}
+
+function makeArtPanel(qrId, w, h, art) {
+  // unlit, like the QR chips and captions, so the artwork keeps its
+  // colours (a lit white frame reads grey on the shaded face)
+  const frameMat = new THREE.MeshBasicMaterial({ transparent: true });
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), frameMat);
+
+  let qrMat = null;
+  if (art.qr) {
+    const [qx, qy, qs] = art.qrBox.map((v) => v * MM);
+    qrMat = new THREE.MeshBasicMaterial();
+    const qr = new THREE.Mesh(new THREE.PlaneGeometry(qs, qs), qrMat);
+    qr.position.set(-w / 2 + qx + qs / 2, h / 2 - qy - qs / 2, 0.001);
+    panel.add(qr);
+  }
+
+  panel.visible = false;
+  const ready = Promise.all([
+    loadTexture(art.frame),
+    art.qr ? loadTexture(art.qr, true) : null,
+  ])
+    .then(([frameTex, qrTex]) => {
+      frameMat.map = frameTex;
+      frameMat.needsUpdate = true;
+      if (qrMat) {
+        qrMat.map = qrTex;
+        qrMat.needsUpdate = true;
+      }
+      panel.visible = true;
+    })
+    .catch((err) => console.error("obelisk: could not load panel art", err));
+
+  panel.userData = { qrId };
+  return { panel, ready };
+}
+
+/* ---- white card panel (artboard frame + QR) --------------------------
+   A w x h white card (square or rounded corners) with a QR at
+   card.qrBox. The QR is the image at card.qr (loaded, like the artwork
+   panels) or, with none, a placeholder from makeQrTexture — sized so its
+   modules, not its quiet zone, fill the box.
+   ------------------------------------------------------------------- */
+function makeCardPanel(qrId, w, h, card, seed) {
+  const r = card.radius * MM;
+  const panel = new THREE.Mesh(
+    r > 0
+      ? new THREE.ShapeGeometry(roundedRectShape(w, h, r))
+      : new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  );
+
+  const [qx, qy, qs] = card.qrBox.map((v) => v * MM);
+  const qrMat = new THREE.MeshBasicMaterial({ transparent: true });
+  const qr = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), qrMat);
+  qr.position.set(-w / 2 + qx + qs / 2, h / 2 - qy - qs / 2, 0.001);
+  panel.add(qr);
+
+  let ready = Promise.resolve();
+  if (card.lenticular) {
+    qr.scale.setScalar(qs / (card.qrFrac || 1));
+    ready = makeLenticular(panel, qr, qrMat, qs / (card.qrFrac || 1), card.lenticular);
+  } else if (card.qr) {
+    qr.scale.setScalar(qs / (card.qrFrac || 1));
+    qr.visible = false;
+    ready = loadTexture(card.qr, true)
+      .then((tex) => {
+        qrMat.map = tex;
+        qrMat.needsUpdate = true;
+        qr.visible = true;
+      })
+      .catch((err) => console.error("obelisk: could not load panel QR", err));
+  } else {
+    qrMat.map = makeQrTexture(seed, false);
+    qr.scale.setScalar(qs / qrMat.map.userData.moduleFrac);
+  }
+
+  panel.userData.qrId = qrId;
+  return { panel, ready };
+}
+
+/* ---- lenticular QR -----------------------------------------------------
+   After the lenticular simulator: one QR per view, each with its own
+   frame image clipped to a circle over the QR's centre. Which view shows
+   depends on the camera's horizontal angle to the panel — the angles
+   -spreadDeg..+spreadDeg split evenly between the views, left to right,
+   and past either end the end view holds, like the flip of a real
+   lenticular print. panel.userData.slug follows the view, so a click
+   opens that view's page. Call panel.userData.lens.update(camera) each
+   frame.
+   ------------------------------------------------------------------- */
+function makeLenticular(panel, qr, qrMat, qrSize, lens) {
+  // white circle base, with the (mostly transparent) frame image over it
+  const circleGeo = new THREE.CircleGeometry((qrSize * lens.circleFrac) / 2, 48);
+  const circle = new THREE.Mesh(
+    circleGeo,
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  );
+  circle.position.copy(qr.position);
+  circle.position.z += 0.0005;
+  const circleMat = new THREE.MeshBasicMaterial({ transparent: true });
+  const frame = new THREE.Mesh(circleGeo, circleMat);
+  frame.position.z = 0.0005;
+  circle.add(frame);
+  panel.add(circle);
+
+  const views = lens.views.map((v) => ({ ...v, qrTex: null, frameTex: null }));
+  const spread = THREE.MathUtils.degToRad(lens.spreadDeg);
+  const local = new THREE.Vector3();
+  let current = -1;
+
+  const show = (i) => {
+    if (i === current || !views[i].qrTex) return;
+    current = i;
+    qrMat.map = views[i].qrTex;
+    qrMat.needsUpdate = true;
+    circleMat.map = views[i].frameTex;
+    circleMat.needsUpdate = true;
+    panel.userData.slug = views[i].slug;
+  };
+
+  panel.userData.lens = {
+    update(camera) {
+      local.copy(camera.position);
+      panel.worldToLocal(local);
+      const azimuth = Math.atan2(local.x, local.z); // - = viewer to the left
+      const t = (azimuth + spread) / (2 * spread);
+      show(THREE.MathUtils.clamp(Math.floor(t * views.length), 0, views.length - 1));
+    },
+  };
+
+  qr.visible = circle.visible = false;
+  return Promise.all(
+    views.map((v) =>
+      Promise.all([loadTexture(v.qr, true), loadTexture(v.frame)]).then(
+        ([qrTex, frameTex]) => {
+          v.qrTex = qrTex;
+          v.frameTex = frameTex;
+        },
+      ),
+    ),
+  )
+    .then(() => {
+      show(Math.floor(views.length / 2)); // centre view until the camera says otherwise
+      qr.visible = circle.visible = true;
+    })
+    .catch((err) => console.error("obelisk: could not load lenticular views", err));
+}
+
 /* ---- convex polygon clip ---------------------------------------------
    Clips a convex polygon ([x, y] points) to the half-plane
    p[axis] >= min (Sutherland-Hodgman, one edge).
@@ -409,7 +633,7 @@ function clipPolygon(points, axis, min) {
    scam zig-zag right/left down the column. Sizes and positions are the
    F2_* constants above.
    ------------------------------------------------------------------- */
-function layoutFace2(faceIndex, qrTargets, fontLoads) {
+function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
   const group = new THREE.Group();
 
   // artboard mm (top-left origin, y down) -> face metres (centre, y up)
@@ -488,18 +712,44 @@ function layoutFace2(faceIndex, qrTargets, fontLoads) {
   }
 
   // the rectangular panels
-  for (const { n, x, y, w, h, caption } of F2_PANELS) {
+  for (const { n, x, y, w, h, caption, prism, art, card } of F2_PANELS) {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
-    const panel = makePanel(
-      qrId,
-      w * MM,
-      h * MM,
-      panelColor(n),
-      0,
-      panelSeed(n),
-      n % 2 === 0,
-    );
-    panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+    let panel;
+    if (card) {
+      const built = makeCardPanel(qrId, w * MM, h * MM, card, panelSeed(n));
+      panel = built.panel;
+      assetLoads.push(built.ready);
+      if (panel.userData.lens) {
+        const lens = panel.userData.lens;
+        updaters.push((camera) => {
+          lens.update(camera);
+          return false;
+        });
+      }
+      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+    } else if (art) {
+      const built = makeArtPanel(qrId, w * MM, h * MM, art);
+      panel = built.panel;
+      assetLoads.push(built.ready);
+      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+    } else if (prism) {
+      panel = buildPerspectivePrism();
+      panel.userData.qrId = qrId;
+      const prismPanel = panel;
+      updaters.push((camera, dt) => updatePrismScan(prismPanel, camera, dt));
+      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.001);
+    } else {
+      panel = makePanel(
+        qrId,
+        w * MM,
+        h * MM,
+        panelColor(n),
+        0,
+        panelSeed(n),
+        n % 2 === 0,
+      );
+      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+    }
     if (caption) addCaption(panel, caption);
     group.add(panel);
     qrTargets.push(panel);
@@ -513,13 +763,13 @@ function layoutFace2(faceIndex, qrTargets, fontLoads) {
     0.004,
   );
   group.add(credits.mesh);
-  fontLoads.push(credits.ready);
+  assetLoads.push(credits.ready);
 
   return group;
 }
 
 /* ---- one shaft face -------------------------------------------------- */
-function makeFace(faceIndex, qrTargets, fontLoads) {
+function makeFace(faceIndex, qrTargets, assetLoads, updaters) {
   const group = new THREE.Group();
   const angle = (faceIndex * 2 * Math.PI) / 3;
   group.rotation.y = angle;
@@ -529,7 +779,7 @@ function makeFace(faceIndex, qrTargets, fontLoads) {
   if (layout.type === "face1") {
     group.add(layoutFace1(faceIndex, qrTargets));
   } else if (layout.type === "face2") {
-    group.add(layoutFace2(faceIndex, qrTargets, fontLoads));
+    group.add(layoutFace2(faceIndex, qrTargets, assetLoads, updaters));
   }
   // "blank" -> nothing added; the bare shaft colour shows
 
@@ -590,7 +840,10 @@ function makeContactShadow(y) {
 export function buildObelisk() {
   const group = new THREE.Group();
   const qrTargets = [];
-  const fontLoads = [];
+  const assetLoads = [];
+  // per-frame, camera-dependent updates (the angle prism's scannable look,
+  // the lenticular panel's view); each returns true while animating
+  const updaters = [];
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
     color: BODY_COLOR,
@@ -624,7 +877,8 @@ export function buildObelisk() {
   // faces live on the shaft; parent them to a group at the shaft centre
   const shaftFaces = new THREE.Group();
   shaftFaces.position.y = Y_SHAFT;
-  for (let f = 0; f < 3; f++) shaftFaces.add(makeFace(f, qrTargets, fontLoads));
+  for (let f = 0; f < 3; f++)
+    shaftFaces.add(makeFace(f, qrTargets, assetLoads, updaters));
   group.add(shaftFaces);
 
   // centre the whole silhouette on the origin
@@ -634,14 +888,26 @@ export function buildObelisk() {
     group,
     qrTargets,
     height: TOTAL_H,
-    fontsReady: Promise.all(fontLoads),
+    assetsReady: Promise.all(assetLoads),
+    update: (camera, dt) =>
+      updaters.reduce((busy, u) => u(camera, dt) || busy, false),
   };
 }
 
 /* ---- hover feedback ------------------------------------------------- */
 export function setPanelHover(panel, hovered) {
-  if (!panel || !panel.material) return;
-  panel.material.emissiveIntensity = hovered ? 0.4 : 0;
+  if (!panel) return;
+  if (panel.userData.scan) {
+    // the perspective prism manages its own glow (see perspective-prism.js)
+    setPrismHover(panel, hovered);
+    panel.scale.setScalar(hovered ? 1.03 : 1);
+    return;
+  }
+  // every lit part glows (a card, or each face of the perspective prism)
+  panel.traverse((obj) => {
+    if (obj.material && obj.material.emissive)
+      obj.material.emissiveIntensity = hovered ? 0.4 : 0;
+  });
   panel.scale.setScalar(hovered ? 1.03 : 1);
 }
 

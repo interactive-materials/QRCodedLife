@@ -2,10 +2,15 @@
    main.js — obelisk bootstrap. Tapping an active QR code is a plain
    navigation to its own page (.../page-N/).
 
-   Controls: one-finger / left-drag orbits. The mouse wheel (or a
-   trackpad two-finger swipe) and a two-finger touch drag scroll the view
-   up and down the obelisk; pinch (touch) or ctrl+wheel (trackpad pinch)
-   zooms, as do the +/- buttons.
+   Controls: one-finger / left-drag orbits. Right-drag (or shift-drag)
+   and a two-finger touch drag pan the view up/down and side to side.
+   The mouse wheel, pinch (touch) or trackpad pinch zooms toward the point
+   under the cursor / fingers; the +/- buttons zoom toward the middle of
+   the view.
+
+   The angle prism's QR only reads from its scan point, so it is
+   clickable only while the camera is lined up there (see
+   perspective-prism.js) — obelisk.update() tracks that each frame.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -21,6 +26,23 @@ const finePointer = window.matchMedia("(pointer: fine)").matches;
 
 let renderer, scene, camera, controls, obelisk;
 let renderRequested = false;
+let lastTick = 0;
+
+// how close the camera may get to its orbit target (m) when zooming in on
+// a point of the obelisk — close enough to reach the angle prism's 150mm
+// scan point. Zooming at empty space stops at farMinDist instead.
+const MIN_ZOOM_DIST = 0.06;
+let farMinDist = 1;
+// the camera never gets closer than this to the obelisk's surface (m)
+const SURFACE_MARGIN = 0.02;
+// field of view widens from FAR_FOV to a phone-camera-like CLOSE_FOV as
+// the camera closes in on its target (between FOV_RANGE, m), so the angle
+// prism fits on screen from its 150mm scan point
+const FAR_FOV = 35;
+const CLOSE_FOV = 70;
+const FOV_RANGE = [0.15, 0.8];
+// the orbit target stays within this radius (m) of the obelisk's axis
+const PAN_RADIUS = 0.6;
 
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
@@ -29,7 +51,7 @@ const down = { x: 0, y: 0, t: 0, valid: false };
 
 // active touch pointers (id -> {x, y}), for two-finger scroll + pinch
 const touches = new Map();
-let twoFinger = null; // { midY, dist } at the last two-finger move
+let twoFinger = null; // { midX, midY, dist } at the last two-finger move
 
 function basePath() {
   return location.pathname.replace(/index\.html$/, "");
@@ -48,14 +70,16 @@ function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf4efe3);
 
-  camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+  camera = new THREE.PerspectiveCamera(FAR_FOV, 1, 0.1, 100);
   camera.position.set(0.9, 0.4, 1.5);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.enablePan = false;
-  // wheel + two-finger gestures are handled below (vertical scroll/pinch)
+  // right-drag / shift-drag pans; wheel + two-finger gestures are handled
+  // below (pan + zoom-to-point)
+  controls.enablePan = true;
+  controls.screenSpacePanning = true;
   controls.enableZoom = false;
   controls.touches.TWO = null;
   controls.rotateSpeed = 0.9;
@@ -63,7 +87,11 @@ function init() {
   controls.minPolarAngle = Math.PI * 0.12;
   controls.maxPolarAngle = Math.PI * 0.88;
   controls.target.set(0, 0, 0);
-  controls.addEventListener("change", requestRender);
+  controls.addEventListener("change", () => {
+    clampTarget();
+    keepCameraOutside();
+    requestRender();
+  });
   controls.addEventListener("start", onInteractStart);
 
   scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8a8397, 1.25));
@@ -80,8 +108,9 @@ function init() {
     setPanelEnabled(panel, Boolean(pageRoutes[panel.userData.qrId])),
   );
 
-  // text on the obelisk is redrawn once its web font arrives
-  obelisk.fontsReady.then(requestRender);
+  // text is redrawn once its web font arrives, and image panels appear
+  // once loaded
+  obelisk.assetsReady.then(requestRender);
 
   frameCamera();
   addEventListeners();
@@ -101,7 +130,7 @@ function frameCamera(keepDirection = false) {
   const h = canvas.clientHeight || window.innerHeight;
   camera.aspect = w / h;
 
-  const fov = (camera.fov * Math.PI) / 180;
+  const fov = (FAR_FOV * Math.PI) / 180; // framing is always from afar
   const margin = camera.aspect < 0.8 ? 1.3 : 1.22;
   const fitHeightDist = (obelisk.height * margin) / (2 * Math.tan(fov / 2));
   const fitWidthDist = (0.95 * margin) / (2 * Math.tan(fov / 2) * camera.aspect);
@@ -112,11 +141,12 @@ function frameCamera(keepDirection = false) {
     : new THREE.Vector3(0.92, 0.26, 0.55).normalize();
 
   camera.position.copy(dir.multiplyScalar(dist).add(controls.target));
-  camera.near = dist / 50;
+  camera.near = 0.01; // near enough for close-up zoom
   camera.far = dist * 10;
   camera.updateProjectionMatrix();
 
-  controls.minDistance = dist * 0.45;
+  controls.minDistance = MIN_ZOOM_DIST;
+  farMinDist = dist * 0.45;
   controls.maxDistance = dist * 1.7;
   controls.update();
   requestRender();
@@ -129,11 +159,31 @@ function requestRender() {
   requestAnimationFrame(tick);
 }
 
-function tick() {
+function tick(now) {
   renderRequested = false;
+  const dt = Math.min(0.1, (now - lastTick) / 1000 || 0);
+  lastTick = now;
   const moving = controls.update();
+  updateFov();
+  const animating = obelisk.update(camera, dt);
+  // a panel that just locked (e.g. the prism moving out of alignment)
+  // stops being hovered
+  if (hoveredPanel && hoveredPanel.userData.locked) {
+    setPanelHover(hoveredPanel, false);
+    hoveredPanel = null;
+    canvas.style.cursor = "";
+  }
   renderer.render(scene, camera);
-  if (moving) requestRender();
+  if (moving || animating) requestRender();
+}
+
+function updateFov() {
+  const d = camera.position.distanceTo(controls.target);
+  const t = THREE.MathUtils.smoothstep(d, FOV_RANGE[0], FOV_RANGE[1]);
+  const fov = THREE.MathUtils.lerp(CLOSE_FOV, FAR_FOV, t);
+  if (Math.abs(fov - camera.fov) < 0.01) return;
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
 }
 
 /* ---- interaction ---------------------------------------------------- */
@@ -159,7 +209,9 @@ function pickPanel() {
     if (hit.object.userData && hit.object.userData.ignoreRaycast) continue;
     let o = hit.object;
     while (o) {
-      if (o.userData && o.userData.qrId && !o.userData.disabled) return o;
+      if (o.userData && o.userData.qrId) {
+        return o.userData.disabled || o.userData.locked ? null : o;
+      }
       o = o.parent;
     }
     return null;
@@ -184,8 +236,9 @@ function onPointerUp(e) {
   setNDC(e);
   const panel = pickPanel();
   if (panel) {
-    const qrId = panel.userData.qrId;
-    window.location.href = basePath() + pageRoutes[qrId] + "/";
+    // a panel can override its page (the lenticular QR's current view)
+    const slug = panel.userData.slug || pageRoutes[panel.userData.qrId];
+    window.location.href = basePath() + slug + "/";
   }
 }
 
@@ -201,9 +254,10 @@ function onPointerMove(e) {
   requestRender();
 }
 
-/* ---- vertical scroll ------------------------------------------------
-   Slides the camera and its orbit target up/down together, keeping the
-   target within the obelisk's height.
+/* ---- pan ------------------------------------------------------------
+   Slides the camera and its orbit target together: dx along the view's
+   horizontal right, dy straight up/down. clampTarget keeps the target
+   within the obelisk's height and near its axis.
    ------------------------------------------------------------------- */
 function worldPerPixel() {
   const dist = camera.position.distanceTo(controls.target);
@@ -211,13 +265,50 @@ function worldPerPixel() {
   return (2 * dist * Math.tan(fov / 2)) / (canvas.clientHeight || 1);
 }
 
-function scrollBy(dy) {
+function moveBoth(delta) {
+  controls.target.add(delta);
+  camera.position.add(delta);
+}
+
+function clampTarget() {
+  const t = controls.target;
   const half = obelisk.height / 2;
-  const y = THREE.MathUtils.clamp(controls.target.y + dy, -half, half);
-  const applied = y - controls.target.y;
-  if (!applied) return;
-  controls.target.y += applied;
-  camera.position.y += applied;
+  const clamped = new THREE.Vector3(t.x, THREE.MathUtils.clamp(t.y, -half, half), t.z);
+  const r = Math.hypot(clamped.x, clamped.z);
+  if (r > PAN_RADIUS) {
+    clamped.x *= PAN_RADIUS / r;
+    clamped.z *= PAN_RADIUS / r;
+  }
+  if (!clamped.equals(t)) moveBoth(clamped.sub(t));
+}
+
+// Orbiting close around a point on the surface can swing the camera into
+// the obelisk; pull it back along its line to the target, just in front of
+// the first surface in the way.
+function keepCameraOutside() {
+  const dir = camera.position.clone().sub(controls.target);
+  const len = dir.length();
+  if (len < 1e-6) return;
+  raycaster.set(controls.target, dir.divideScalar(len));
+  raycaster.near = 0.005; // skip the surface the target itself sits on
+  raycaster.far = len + SURFACE_MARGIN;
+  const hit = raycaster
+    .intersectObject(obelisk.group, true)
+    .find((h) => !h.object.userData.ignoreRaycast && !h.object.userData.noCollide);
+  raycaster.near = 0;
+  raycaster.far = Infinity;
+  if (hit) {
+    const d = Math.max(MIN_ZOOM_DIST / 2, hit.distance - SURFACE_MARGIN);
+    camera.position.copy(controls.target).addScaledVector(dir, d);
+  }
+}
+
+function panBy(dx, dy) {
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  right.y = 0;
+  if (right.lengthSq() > 1e-9) right.normalize();
+  moveBoth(right.multiplyScalar(dx).add(new THREE.Vector3(0, dy, 0)));
+  clampTarget();
   controls.update();
   requestRender();
 }
@@ -226,18 +317,20 @@ function onWheel(e) {
   e.preventDefault();
   onInteractStart();
   const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight : 1;
-  if (e.ctrlKey) {
-    // trackpad pinch arrives as ctrl+wheel
-    zoomBy(Math.exp(e.deltaY * unit * 0.01));
-  } else {
-    // scrolling down moves down the obelisk, like a page
-    scrollBy(-e.deltaY * unit * worldPerPixel());
-  }
+  // the wheel zooms toward the cursor; a trackpad pinch arrives as
+  // ctrl+wheel with small deltas, so it gets a stronger rate
+  const rate = e.ctrlKey ? 0.01 : 0.002;
+  setNDC(e);
+  zoomBy(Math.exp(e.deltaY * unit * rate), pointerNDC);
 }
 
 function twoFingerState() {
   const [a, b] = [...touches.values()];
-  return { midY: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) };
+  return {
+    midX: (a.x + b.x) / 2,
+    midY: (a.y + b.y) / 2,
+    dist: Math.hypot(a.x - b.x, a.y - b.y),
+  };
 }
 
 function onTouchPointerDown(e) {
@@ -256,8 +349,12 @@ function onTouchPointerMove(e) {
   if (touches.size !== 2 || !twoFinger) return;
   const next = twoFingerState();
   // the obelisk follows the fingers, like dragging a page
-  scrollBy((next.midY - twoFinger.midY) * worldPerPixel());
-  if (twoFinger.dist > 0 && next.dist > 0) zoomBy(twoFinger.dist / next.dist);
+  const k = worldPerPixel();
+  panBy(-(next.midX - twoFinger.midX) * k, (next.midY - twoFinger.midY) * k);
+  if (twoFinger.dist > 0 && next.dist > 0) {
+    setNDC({ clientX: next.midX, clientY: next.midY });
+    zoomBy(twoFinger.dist / next.dist, pointerNDC);
+  }
   twoFinger = next;
 }
 
@@ -266,15 +363,40 @@ function onTouchPointerEnd(e) {
   if (touches.size < 2) twoFinger = null;
 }
 
-/* ---- HUD + window events ----------------------------------------- */
-function zoomBy(factor) {
-  const offset = camera.position.clone().sub(controls.target);
-  const len = THREE.MathUtils.clamp(
-    offset.length() * factor,
-    controls.minDistance,
+/* ---- zoom ------------------------------------------------------------
+   Zooming in scales the camera and orbit target about the point on the
+   obelisk under `ndc` (screen centre by default), so that point stays
+   put on screen and the orbit centre drifts onto it — zooming in on a
+   panel ends up orbiting that panel. Zooming out, or zooming at empty
+   space, scales about the current target.
+   ------------------------------------------------------------------- */
+function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
+  // zooming in heads for the point under the cursor; zooming out always
+  // backs straight away from the orbit target
+  let hit = null;
+  if (factor < 1) {
+    raycaster.setFromCamera(ndc, camera);
+    hit = raycaster
+      .intersectObject(obelisk.group, true)
+      .find((h) => !(h.object.userData && h.object.userData.ignoreRaycast));
+  }
+  const pivot = hit ? hit.point : controls.target.clone();
+
+  // only zoom right in when zooming at the obelisk itself; never let a
+  // zoom-in push the camera back out
+  const dist = camera.position.distanceTo(controls.target);
+  const minDist = Math.min(hit ? controls.minDistance : farMinDist, dist);
+  const clampedDist = THREE.MathUtils.clamp(
+    dist * factor,
+    minDist,
     controls.maxDistance,
   );
-  camera.position.copy(offset.setLength(len).add(controls.target));
+  const f = clampedDist / dist;
+  if (Math.abs(f - 1) < 1e-6) return;
+
+  controls.target.sub(pivot).multiplyScalar(f).add(pivot);
+  camera.position.sub(pivot).multiplyScalar(f).add(pivot);
+  clampTarget();
   controls.update();
   requestRender();
 }
