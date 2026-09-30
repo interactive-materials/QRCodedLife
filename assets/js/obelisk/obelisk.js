@@ -132,18 +132,18 @@ const F2_TILES_CAPTION = [100, 225];
 const F2_CREDITS = {
   x: 6,
   y: 1077,
-  w: 240, // canvas extent, generous enough for the longest line
-  h: 170,
+  w: 300, // canvas extent, generous enough for the longest line
+  h: 240,
   color: "#00C7FF",
   font: '"DM Mono", ui-monospace, monospace',
-  titleSize: 20,
-  titleLeading: 25.4,
+  titleSize: 16,
+  titleLeading: 24,
   nameSize: 12,
   nameLeading: 12,
-  namesTop: 24, // first name's top, from the block's top
-  title: ["Q(art) codes"],
+  namesTop: 72, // first name's top, from the block's top
+  title: ["Q(art) codes", 
+    "by Interactive Materials Lab", "↓"],
   names: [
-    "by Interactive Materials Lab",
     "Clement Zheng",
     "Yong Zhen Zhou",
     "Vina Setiawaty",
