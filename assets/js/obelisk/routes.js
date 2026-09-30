@@ -2,9 +2,9 @@
    routes.js — QR id -> URL slug map.
 
    Face 1 has 3 active QR codes: anatomy, contrast, reliable. Face 2, to
-   the right of face 1, has 6 active QR codes arranged as a vertical
-   column: tiles, handdrawn, lens-c (centre view only, for now), angle,
-   color, scam. Face 3 is blank and has none.
+   the right of face 1, has 6 active QR codes of varying size zig-zagging
+   down the face: tiles, handdrawn, angle, lens-c (centre view only, for
+   now), color, scam. Face 3 is blank and has none.
 
    lens-l and lens-r exist as standalone pages but have no obelisk panel
    yet — they share one physical spot with lens-c and aren't wired up here

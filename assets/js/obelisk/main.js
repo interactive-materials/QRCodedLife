@@ -1,6 +1,11 @@
 /* ==========================================================================
    main.js — obelisk bootstrap. Tapping an active QR code is a plain
    navigation to its own page (.../page-N/).
+
+   Controls: one-finger / left-drag orbits. The mouse wheel (or a
+   trackpad two-finger swipe) and a two-finger touch drag scroll the view
+   up and down the obelisk; pinch (touch) or ctrl+wheel (trackpad pinch)
+   zooms, as do the +/- buttons.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -12,20 +17,19 @@ const canvas = document.getElementById("scene");
 const statusEl = document.getElementById("status");
 const hintEl = document.getElementById("hint");
 
-const reducedMotion = window.matchMedia(
-  "(prefers-reduced-motion: reduce)",
-).matches;
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
 let renderer, scene, camera, controls, obelisk;
 let renderRequested = false;
-let idleTimer = 0;
-const IDLE_MS = 4000;
 
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 let hoveredPanel = null;
 const down = { x: 0, y: 0, t: 0, valid: false };
+
+// active touch pointers (id -> {x, y}), for two-finger scroll + pinch
+const touches = new Map();
+let twoFinger = null; // { midY, dist } at the last two-finger move
 
 function basePath() {
   return location.pathname.replace(/index\.html$/, "");
@@ -51,16 +55,16 @@ function init() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
+  // wheel + two-finger gestures are handled below (vertical scroll/pinch)
+  controls.enableZoom = false;
+  controls.touches.TWO = null;
   controls.rotateSpeed = 0.9;
   controls.zoomSpeed = 0.9;
   controls.minPolarAngle = Math.PI * 0.12;
   controls.maxPolarAngle = Math.PI * 0.88;
   controls.target.set(0, 0, 0);
-  controls.autoRotate = !reducedMotion;
-  controls.autoRotateSpeed = 0.6;
   controls.addEventListener("change", requestRender);
   controls.addEventListener("start", onInteractStart);
-  controls.addEventListener("end", scheduleIdle);
 
   scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8a8397, 1.25));
   const key = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -76,11 +80,13 @@ function init() {
     setPanelEnabled(panel, Boolean(pageRoutes[panel.userData.qrId])),
   );
 
+  // text on the obelisk is redrawn once its web font arrives
+  obelisk.fontsReady.then(requestRender);
+
   frameCamera();
   addEventListeners();
 
   statusEl.hidden = true;
-  scheduleIdle();
   requestRender();
 }
 
@@ -127,23 +133,12 @@ function tick() {
   renderRequested = false;
   const moving = controls.update();
   renderer.render(scene, camera);
-  if (moving || controls.autoRotate) requestRender();
+  if (moving) requestRender();
 }
 
-/* ---- idle / auto-rotate -------------------------------------------- */
+/* ---- interaction ---------------------------------------------------- */
 function onInteractStart() {
-  controls.autoRotate = false;
-  clearTimeout(idleTimer);
   dismissHint();
-}
-
-function scheduleIdle() {
-  if (reducedMotion) return;
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    controls.autoRotate = true;
-    requestRender();
-  }, IDLE_MS);
 }
 
 function dismissHint() {
@@ -206,6 +201,71 @@ function onPointerMove(e) {
   requestRender();
 }
 
+/* ---- vertical scroll ------------------------------------------------
+   Slides the camera and its orbit target up/down together, keeping the
+   target within the obelisk's height.
+   ------------------------------------------------------------------- */
+function worldPerPixel() {
+  const dist = camera.position.distanceTo(controls.target);
+  const fov = (camera.fov * Math.PI) / 180;
+  return (2 * dist * Math.tan(fov / 2)) / (canvas.clientHeight || 1);
+}
+
+function scrollBy(dy) {
+  const half = obelisk.height / 2;
+  const y = THREE.MathUtils.clamp(controls.target.y + dy, -half, half);
+  const applied = y - controls.target.y;
+  if (!applied) return;
+  controls.target.y += applied;
+  camera.position.y += applied;
+  controls.update();
+  requestRender();
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  onInteractStart();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight : 1;
+  if (e.ctrlKey) {
+    // trackpad pinch arrives as ctrl+wheel
+    zoomBy(Math.exp(e.deltaY * unit * 0.01));
+  } else {
+    // scrolling down moves down the obelisk, like a page
+    scrollBy(-e.deltaY * unit * worldPerPixel());
+  }
+}
+
+function twoFingerState() {
+  const [a, b] = [...touches.values()];
+  return { midY: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) };
+}
+
+function onTouchPointerDown(e) {
+  if (e.pointerType !== "touch") return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 2) {
+    twoFinger = twoFingerState();
+    down.valid = false; // a two-finger gesture is never a tap
+    onInteractStart();
+  }
+}
+
+function onTouchPointerMove(e) {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size !== 2 || !twoFinger) return;
+  const next = twoFingerState();
+  // the obelisk follows the fingers, like dragging a page
+  scrollBy((next.midY - twoFinger.midY) * worldPerPixel());
+  if (twoFinger.dist > 0 && next.dist > 0) zoomBy(twoFinger.dist / next.dist);
+  twoFinger = next;
+}
+
+function onTouchPointerEnd(e) {
+  if (!touches.delete(e.pointerId)) return;
+  if (touches.size < 2) twoFinger = null;
+}
+
 /* ---- HUD + window events ----------------------------------------- */
 function zoomBy(factor) {
   const offset = camera.position.clone().sub(controls.target);
@@ -223,6 +283,11 @@ function addEventListeners() {
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  canvas.addEventListener("pointerdown", onTouchPointerDown);
+  canvas.addEventListener("pointermove", onTouchPointerMove);
+  canvas.addEventListener("pointerup", onTouchPointerEnd);
+  canvas.addEventListener("pointercancel", onTouchPointerEnd);
   canvas.addEventListener("pointerleave", () => {
     setPanelHover(hoveredPanel, false);
     hoveredPanel = null;

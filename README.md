@@ -25,12 +25,14 @@ assets/vendor/three/        pinned Three.js + OrbitControls (only dependency)
 
 Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
 
-- **Face 1** — a 490mm x 460mm rectangle, centred on the face: `anatomy`
-  and `contrast` side by side across the top two-thirds, `reliable`
-  stretched full width across the bottom third.
-- **Face 2** — to the right of face 1 — a 490mm x 1270mm vertical column,
-  centred on the face, of 6 equal full-width rows stacked top to bottom:
-  `tiles`, `handdrawn`, `lens-c`, `angle`, `color`, `scam`.
+- **Face 1** — `anatomy` (250mm x 190mm) and `contrast` (140mm x 220mm)
+  side by side, 10mm apart, 10mm above `reliable` (400mm x 140mm); the
+  group is centred on the face.
+- **Face 2** — to the right of face 1 — a 490mm x 1270mm column, centred
+  on the face, laid out after the Artboard 5 artwork
+  (`obelisk/1x/Artboard 5.png`): the `tiles` diamonds bleed off the
+  top-left, then `handdrawn`, `angle`, `lens-c`, `color` and `scam`
+  zig-zag down, with the "Q(art) codes by …" credits bottom-left.
 
   The 3 lenticular pages share one physical panel — for now only `lens-c`
   renders and links; `lens-l` and `lens-r` exist as standalone pages but
@@ -38,9 +40,9 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
   implemented (see `routes.js`).
 - **Face 3** — blank, no QR codes.
 
-Drag / one-finger to orbit, scroll / pinch or the on-screen buttons to zoom,
-tap a QR code to open its page. Auto-rotates when idle (off under
-`prefers-reduced-motion`).
+Drag / one-finger to orbit; mouse wheel, trackpad swipe or two-finger drag
+to scroll up and down the obelisk; pinch or the on-screen buttons to zoom;
+tap a QR code to open its page.
 
 All page copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
 
