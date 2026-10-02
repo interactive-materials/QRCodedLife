@@ -17,6 +17,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
+import { buildSky, setSky, isEasing, skyForSlug, animated as skyAnimated } from "./background.js";
 import { initModal, openModal, closeModal, isModalOpen } from "./modal.js";
 import { pageRoutes, contentForSlug } from "./routes.js";
 
@@ -26,7 +27,7 @@ const hintEl = document.getElementById("hint");
 
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
-let renderer, scene, camera, controls, obelisk;
+let renderer, scene, camera, controls, obelisk, sky;
 let renderRequested = false;
 let lastTick = 0;
 
@@ -90,7 +91,9 @@ function init() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf4efe3);
+  scene.background = new THREE.Color(0x000000); // cleared first; the sky draws over it
+  sky = buildSky();
+  scene.add(sky);
 
   camera = new THREE.PerspectiveCamera(FAR_FOV, 1, 0.1, 100);
   camera.position.set(0.9, 0.4, 1.5);
@@ -136,13 +139,16 @@ function init() {
   obelisk.assetsReady.then(requestRender);
 
   initModal();
-  document.addEventListener("modal:open", () => {
+  document.addEventListener("modal:open", (e) => {
+    const { qrId } = e.detail;
+    setSky(sky, skyForSlug[pageRoutes[qrId] ?? qrId]);
     setPanelHover(hoveredPanel, false);
     hoveredPanel = null;
     canvas.style.cursor = "";
     requestRender();
   });
   document.addEventListener("modal:close", () => {
+    setSky(sky);
     if (slugFromPath()) history.pushState({}, "", basePath());
   });
   window.addEventListener("popstate", syncFromUrl);
@@ -203,7 +209,9 @@ function tick(now) {
   updateFov();
   const animating = obelisk.update(camera, dt);
   renderer.render(scene, camera);
-  if (moving || animating) requestRender();
+  // an animated sky (see background.js) redraws every frame; the browser
+  // pauses this while the tab is hidden
+  if (moving || animating || skyAnimated || isEasing(sky)) requestRender();
 }
 
 function updateFov() {

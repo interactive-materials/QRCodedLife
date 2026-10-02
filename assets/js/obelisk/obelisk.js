@@ -1,6 +1,7 @@
 /* ==========================================================================
    obelisk.js — builds the triangular obelisk in the style of the exhibition
-   poster: a dark 3-sided shaft with a flat top, standing on a white floor.
+   poster: a dark 3-sided shaft with a flat top, standing on a floor ruled
+   with a grid of QR finder markers.
 
    The 3 shaft faces are not identical:
      Face 1 — three fixed-size panels: anatomy (250mm x 190mm) and
@@ -41,6 +42,13 @@ import {
 const SIDE = 0.6; // shaft triangle edge
 const SHAFT_H = 2.0; // shaft height
 const FLOOR_SIZE = 10; // floor disc diameter (m)
+
+// floor grid: square cells whose lines are dotted with QR finder markers
+// (ring 1, gap 1, centre 3 modules), like the dotted lines in tile.svg
+const FLOOR_CELL = 0.3; // grid cell side (m)
+const FLOOR_MARKERS = 20; // markers per cell side; each is half its pitch
+const FLOOR_COLOR = "#000"; // the markers (the digital sky's green)
+const FLOOR_BG = "#FFF"; // the floor between them
 
 const R = SIDE / Math.sqrt(3); // shaft circumradius
 const APOTHEM = R / 2; // shaft centre -> face
@@ -90,15 +98,15 @@ const F1_GROUP_H = F1_PAIR_H + F1_GAP + F1_RELIABILITY_H;
 const F2_COLUMN_W = 490 * MM;
 const F2_COLUMN_H = 1270 * MM;
 
-// tiles: 125mm squares rotated 45deg, 10mm apart, clipped at the
+// tiles: 125mm squares rotated 45deg, 2mm apart, clipped at the
 // column's top and left edges. [i, j] steps are along the diagonal grid
-// from the anchor diamond's centre.
+// from the anchor diamond's centre. Each shows the F2_TILE_ART square,
+// its edges along the diamond's.
 const F2_TILE = 125 * MM;
-const F2_TILE_GAP = 10 * MM;
+const F2_TILE_GAP = 2 * MM;
 const F2_TILE_PITCH = (F2_TILE + F2_TILE_GAP) / Math.SQRT2;
 const F2_TILE_ANCHOR = [149, 53]; // centre of the big top diamond
-const F2_TILE_CHIP = 90 * MM; // QR chip side, rotated to match the tiles
-const F2_TILE_CHIP_MARGIN = 5 * MM;
+const F2_TILE_ART = "tiles/assets/tile.svg";
 const F2_TILES = [[-1, -1], [1, -1], [-2, 0], [0, 0], [-1, 1], [1, 1], [-2, 2]];
 
 // the rectangular panels, by qrId index (face2-(n+1)). caption: a
@@ -634,7 +642,7 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
     const half = F2_TILE / Math.SQRT2; // centre -> vertex
     const toLocal = ([x, y]) => new THREE.Vector2(x - ax * MM, -(y - ay * MM));
     const shapes = [];
-    const chipCentres = [];
+    const centres = []; // each diamond's centre, local (y up)
     for (const [i, j] of F2_TILES) {
       // centre in artboard metres (y down)
       const cx = ax * MM + i * F2_TILE_PITCH;
@@ -648,29 +656,41 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       pts = clipPolygon(clipPolygon(pts, 0, 0), 1, 0);
       if (pts.length < 3) continue;
       shapes.push(new THREE.Shape(pts.map(toLocal)));
-      // chips are rotated 45deg to sit square in their diamond; on a
-      // diamond cut by the column edge, nudge the chip away from the cut
-      // so its corner stays F2_TILE_CHIP_MARGIN inside.
-      if (cx >= 0 && cy >= 0) {
-        const reach = F2_TILE_CHIP / Math.SQRT2 + F2_TILE_CHIP_MARGIN;
-        chipCentres.push(
-          toLocal([cx + Math.max(0, reach - cx), cy + Math.max(0, reach - cy)]),
-        );
-      }
+      centres.push(toLocal([cx, cy]));
     }
 
-    const panel = new THREE.Mesh(
-      new THREE.ShapeGeometry(shapes),
-      cardMaterial(panelColor(0)),
-    );
+    // map the tile art onto each diamond: its bottom, right, top and left
+    // vertices take the art's corners, so the art turns 45deg with it
+    // (and a clipped diamond shows the matching part of the art). The
+    // diamonds don't touch, so a vertex belongs to its nearest centre.
+    const geometry = new THREE.ShapeGeometry(shapes);
+    const pos = geometry.attributes.position;
+    const uv = geometry.attributes.uv;
+    for (let v = 0; v < pos.count; v++) {
+      const x = pos.getX(v);
+      const y = pos.getY(v);
+      let c = centres[0];
+      for (const d of centres)
+        if (Math.hypot(x - d.x, y - d.y) < Math.hypot(x - c.x, y - c.y)) c = d;
+      const dx = x - c.x;
+      const dy = y - c.y;
+      uv.setXY(v, 0.5 + (dx + dy) / (2 * half), 0.5 + (dy - dx) / (2 * half));
+    }
+
+    // unlit, like the artwork panels, so the art keeps its colours
+    const tileMat = new THREE.MeshBasicMaterial({ transparent: true });
+    const panel = new THREE.Mesh(geometry, tileMat);
     panel.position.set(toX(ax), toY(ay), 0.006);
-    chipCentres.forEach((c, k) => {
-      const qrDim = F2_TILE_CHIP / 1.22; // makeQrChip's backing is 1.22x
-      const { chipGroup } = makeQrChip(qrDim, panelSeed(0) + k, k % 2 === 0);
-      chipGroup.position.set(c.x, c.y, 0.003);
-      chipGroup.rotation.z = Math.PI / 4;
-      panel.add(chipGroup);
-    });
+    panel.visible = false;
+    assetLoads.push(
+      loadTexture(F2_TILE_ART)
+        .then((tex) => {
+          tileMat.map = tex;
+          tileMat.needsUpdate = true;
+          panel.visible = true;
+        })
+        .catch((err) => console.error("obelisk: could not load tile art", err)),
+    );
     addCaption(panel, F2_TILES_CAPTION);
     panel.userData = {
       qrId: `face${faceIndex + 1}-1`,
@@ -768,6 +788,45 @@ function triPrism(radiusTop, radiusBottom, height, material) {
   return mesh;
 }
 
+/* ---- floor grid -------------------------------------------------- */
+// one grid cell, to repeat across the floor: a line of finder markers
+// along its top and left edges (a marker sits on the corner, where the
+// lines cross)
+function makeFloorGridTexture() {
+  const size = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = FLOOR_BG;
+  ctx.fillRect(0, 0, size, size);
+
+  const pitch = size / FLOOR_MARKERS;
+  const m = pitch / 2 / 7; // module: the marker is 7 modules across
+  const marker = (cx, cy) => {
+    ctx.fillStyle = FLOOR_COLOR;
+    ctx.fillRect(cx - 3.5 * m, cy - 3.5 * m, 7 * m, 7 * m);
+    ctx.fillStyle = FLOOR_BG;
+    ctx.fillRect(cx - 2.5 * m, cy - 2.5 * m, 5 * m, 5 * m);
+    ctx.fillStyle = FLOOR_COLOR;
+    ctx.fillRect(cx - 1.5 * m, cy - 1.5 * m, 3 * m, 3 * m);
+  };
+  // markers on an edge are cut in half; draw each on both opposite
+  // edges so the halves meet when the texture repeats
+  for (let k = 0; k <= FLOOR_MARKERS; k++) {
+    for (const edge of [0, size]) {
+      marker(k * pitch, edge);
+      marker(edge, k * pitch);
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.setScalar(FLOOR_SIZE / FLOOR_CELL);
+  tex.anisotropy = 8; // the floor is mostly seen at a glancing angle
+  return tex;
+}
+
 /* ---- contact shadow --------------------------------------------- */
 function makeContactShadow(y) {
   const size = 256;
@@ -816,17 +875,22 @@ export function buildObelisk() {
     color: BODY_COLOR,
     roughness: 0.72,
     metalness: 0.04,
+    // a 3-segment CylinderGeometry has smooth (radial) normals, shading
+    // the shaft like a rounded tube; flat-shade it so each face is lit
+    // evenly and the corners read as edges
+    flatShading: true,
   });
 
   // triangular shaft, flat-topped
   const shaft = triPrism(R, R, SHAFT_H, bodyMaterial);
   shaft.position.y = Y_SHAFT;
 
-  // plain white floor disc, 10m across; ignored by picking and
-  // zoom so zooming at it never drags the orbit target down to it
+  // floor disc, 10m across, ruled with the finder-marker grid (a
+  // line crossing sits under the shaft); ignored by picking and zoom so
+  // zooming at it never drags the orbit target down to it
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(FLOOR_SIZE / 2, 96),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    new THREE.MeshBasicMaterial({ map: makeFloorGridTexture() }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.userData.ignoreRaycast = true;
