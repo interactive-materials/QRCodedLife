@@ -8,10 +8,10 @@
    Controls: one-finger / left-drag orbits round the obelisk's vertical
    axis only — the camera stays level, never tilting up or down.
    Right-drag (or shift-drag) and a two-finger touch drag pan the view
-   up/down and side to side.
-   The mouse wheel, pinch (touch) or trackpad pinch zooms toward the point
-   under the cursor / fingers; the +/- buttons zoom toward the middle of
-   the view.
+   up and down only, never side to side.
+   The mouse wheel, pinch (touch) or trackpad pinch zooms in toward the
+   point under the cursor / fingers; the +/- buttons zoom in toward the
+   middle of the view. Zooming out heads back to the starting view.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -36,6 +36,10 @@ let lastTick = 0;
 // scan point. Zooming at empty space stops at farMinDist instead.
 const MIN_ZOOM_DIST = 0.06;
 let farMinDist = 1;
+// the starting view's distance from the obelisk's centre (m), set by
+// frameCamera; zooming out heads back to it and stops there
+let homeDist = 1;
+const HOME_TARGET = new THREE.Vector3(0, 0, 0);
 // the camera never gets closer than this to the obelisk's surface (m)
 const SURFACE_MARGIN = 0.02;
 // the closest keepCameraOutside may pull the camera to its target (m);
@@ -54,6 +58,9 @@ const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 let hoveredPanel = null;
 const down = { x: 0, y: 0, t: 0, valid: false, tap: false };
+
+// the mouse/pen pointer doing a right- or shift-drag pan: { id, y }
+let dragPan = null;
 
 // active touch pointers (id -> {x, y}), for two-finger scroll + pinch
 const touches = new Map();
@@ -101,10 +108,10 @@ function init() {
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  // right-drag / shift-drag pans; wheel + two-finger gestures are handled
-  // below (pan + zoom-to-point)
-  controls.enablePan = true;
-  controls.screenSpacePanning = true;
+  // OrbitControls only orbits: its pan moves sideways too, so right-drag /
+  // shift-drag (vertical pan), the wheel and two-finger gestures (vertical
+  // pan + zoom-to-point) are all handled below
+  controls.enablePan = false;
   controls.enableZoom = false;
   controls.touches.TWO = null;
   controls.rotateSpeed = 0.9;
@@ -184,12 +191,13 @@ function frameCamera(keepDirection = false) {
 
   camera.position.copy(dir.multiplyScalar(dist).add(controls.target));
   camera.near = 0.01; // near enough for close-up zoom
-  camera.far = dist * 10;
+  camera.far = Math.max(dist * 10, obelisk.floorRadius * 1.5); // past the floor's edge
   camera.updateProjectionMatrix();
 
   controls.minDistance = MIN_ORBIT_DIST;
   farMinDist = dist * 0.45;
-  controls.maxDistance = dist * 1.7;
+  homeDist = dist;
+  controls.maxDistance = dist;
   controls.update();
   requestRender();
 }
@@ -303,9 +311,9 @@ function onPointerMove(e) {
 }
 
 /* ---- pan ------------------------------------------------------------
-   Slides the camera and its orbit target together: dx along the view's
-   horizontal right, dy straight up/down. clampTarget keeps the target
-   within the obelisk's height and near its axis.
+   Slides the camera and its orbit target together, straight up or down
+   only. clampTarget keeps the target within the obelisk's height (and,
+   after a zoom-to-point, near its axis).
    ------------------------------------------------------------------- */
 function worldPerPixel() {
   const dist = camera.position.distanceTo(controls.target);
@@ -351,14 +359,30 @@ function keepCameraOutside() {
   }
 }
 
-function panBy(dx, dy) {
-  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-  right.y = 0;
-  if (right.lengthSq() > 1e-9) right.normalize();
-  moveBoth(right.multiplyScalar(dx).add(new THREE.Vector3(0, dy, 0)));
+function panBy(dy) {
+  moveBoth(new THREE.Vector3(0, dy, 0));
   clampTarget();
   controls.update();
   requestRender();
+}
+
+// right-drag or shift-drag (mouse / pen): the obelisk follows the pointer
+// up and down
+function onDragPanStart(e) {
+  if (e.pointerType === "touch") return;
+  if (e.button !== 2 && !(e.button === 0 && e.shiftKey)) return;
+  dragPan = { id: e.pointerId, y: e.clientY };
+  onInteractStart();
+}
+
+function onDragPanMove(e) {
+  if (!dragPan || e.pointerId !== dragPan.id) return;
+  panBy((e.clientY - dragPan.y) * worldPerPixel());
+  dragPan.y = e.clientY;
+}
+
+function onDragPanEnd(e) {
+  if (dragPan && e.pointerId === dragPan.id) dragPan = null;
 }
 
 function onWheel(e) {
@@ -398,7 +422,7 @@ function onTouchPointerMove(e) {
   const next = twoFingerState();
   // the obelisk follows the fingers, like dragging a page
   const k = worldPerPixel();
-  panBy(-(next.midX - twoFinger.midX) * k, (next.midY - twoFinger.midY) * k);
+  panBy((next.midY - twoFinger.midY) * k);
   if (twoFinger.dist > 0 && next.dist > 0) {
     setNDC({ clientX: next.midX, clientY: next.midY });
     zoomBy(twoFinger.dist / next.dist, pointerNDC);
@@ -415,19 +439,25 @@ function onTouchPointerEnd(e) {
    Zooming in scales the camera and orbit target about the point on the
    obelisk under `ndc` (screen centre by default), so that point stays
    put on screen and the orbit centre drifts onto it — zooming in on a
-   panel ends up orbiting that panel. Zooming out, or zooming at empty
-   space, scales about the current target.
+   panel ends up orbiting that panel. Zooming in at empty space scales
+   about the current target.
+
+   Zooming out retraces the way back to the starting view: as the camera
+   backs off toward homeDist, the orbit target eases back to the
+   obelisk's centre in step, arriving exactly as the camera reaches
+   homeDist, where zooming out stops. The orbit angle is kept.
    ------------------------------------------------------------------- */
 function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
-  // zooming in heads for the point under the cursor; zooming out always
-  // backs straight away from the orbit target
-  let hit = null;
-  if (factor < 1) {
-    raycaster.setFromCamera(ndc, camera);
-    hit = raycaster
-      .intersectObject(obelisk.group, true)
-      .find((h) => !(h.object.userData && h.object.userData.ignoreRaycast));
+  if (factor === 1) return;
+  if (factor > 1) {
+    zoomOutBy(factor);
+    return;
   }
+  // zooming in heads for the point under the cursor
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster
+    .intersectObject(obelisk.group, true)
+    .find((h) => !(h.object.userData && h.object.userData.ignoreRaycast));
   const pivot = hit ? hit.point : controls.target.clone();
 
   // only zoom right in when zooming at the obelisk itself; never let a
@@ -449,6 +479,19 @@ function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
   requestRender();
 }
 
+function zoomOutBy(factor) {
+  const offset = camera.position.clone().sub(controls.target);
+  const dist = offset.length();
+  if (dist >= homeDist - 1e-6 && controls.target.equals(HOME_TARGET)) return;
+  const next = Math.min(dist * factor, homeDist);
+  // share of the remaining way home covered by this step
+  const s = dist < homeDist ? (next - dist) / (homeDist - dist) : 1;
+  controls.target.lerp(HOME_TARGET, s);
+  camera.position.copy(controls.target).addScaledVector(offset.normalize(), next);
+  controls.update();
+  requestRender();
+}
+
 function addEventListeners() {
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
@@ -459,6 +502,10 @@ function addEventListeners() {
   canvas.addEventListener("pointermove", onTouchPointerMove);
   canvas.addEventListener("pointerup", onTouchPointerEnd);
   canvas.addEventListener("pointercancel", onTouchPointerEnd);
+  canvas.addEventListener("pointerdown", onDragPanStart);
+  canvas.addEventListener("pointermove", onDragPanMove);
+  canvas.addEventListener("pointerup", onDragPanEnd);
+  canvas.addEventListener("pointercancel", onDragPanEnd);
   canvas.addEventListener("pointerleave", () => {
     setPanelHover(hoveredPanel, false);
     hoveredPanel = null;

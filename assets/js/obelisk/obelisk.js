@@ -41,13 +41,16 @@ import {
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
 const SHAFT_H = 2.0; // shaft height
-const FLOOR_SIZE = 10; // floor disc diameter (m)
+// the floor runs out toward the horizon: a disc FLOOR_SIZE across that
+// fades to transparent (showing the sky) from FLOOR_FADE out to its edge
+const FLOOR_SIZE = 300; // floor disc diameter (m)
+const FLOOR_FADE = 15; // distance from the shaft where the fade starts (m)
 
 // floor grid: square cells whose lines are dotted with QR finder markers
 // (ring 1, gap 1, centre 3 modules), like the dotted lines in tile.svg
 const FLOOR_CELL = 0.3; // grid cell side (m)
 const FLOOR_MARKERS = 20; // markers per cell side; each is half its pitch
-const FLOOR_COLOR = "#000"; // the markers (the digital sky's green)
+const FLOOR_COLOR = "#000"; // the markers
 const FLOOR_BG = "#FFF"; // the floor between them
 
 const R = SIDE / Math.sqrt(3); // shaft circumradius
@@ -827,6 +830,36 @@ function makeFloorGridTexture() {
   return tex;
 }
 
+// the grid, its alpha falling from 1 at FLOOR_FADE to 0 at the disc's
+// edge, so the floor melts into the sky's horizon whatever its colours
+function makeFloorMaterial() {
+  const material = new THREE.MeshBasicMaterial({
+    map: makeFloorGridTexture(),
+    transparent: true,
+  });
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.floorFade = {
+      value: new THREE.Vector2(FLOOR_FADE, FLOOR_SIZE / 2),
+    };
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying float vFloorDist;")
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvFloorDist = length(position.xy);",
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nuniform vec2 floorFade;\nvarying float vFloorDist;",
+      )
+      .replace(
+        "#include <opaque_fragment>",
+        "diffuseColor.a *= 1.0 - smoothstep(floorFade.x, floorFade.y, vFloorDist);\n#include <opaque_fragment>",
+      );
+  };
+  return material;
+}
+
 /* ---- contact shadow --------------------------------------------- */
 function makeContactShadow(y) {
   const size = 256;
@@ -885,14 +918,15 @@ export function buildObelisk() {
   const shaft = triPrism(R, R, SHAFT_H, bodyMaterial);
   shaft.position.y = Y_SHAFT;
 
-  // floor disc, 10m across, ruled with the finder-marker grid (a
-  // line crossing sits under the shaft); ignored by picking and zoom so
-  // zooming at it never drags the orbit target down to it
+  // floor disc ruled with the finder-marker grid (a line crossing sits
+  // under the shaft), fading out toward the horizon; ignored by picking
+  // and zoom so zooming at it never drags the orbit target down to it
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(FLOOR_SIZE / 2, 96),
-    new THREE.MeshBasicMaterial({ map: makeFloorGridTexture() }),
+    makeFloorMaterial(),
   );
   floor.rotation.x = -Math.PI / 2;
+  floor.renderOrder = -2; // before the contact shadow, which lies on it
   floor.userData.ignoreRaycast = true;
 
   group.add(floor, shaft);
@@ -912,6 +946,7 @@ export function buildObelisk() {
     group,
     qrTargets,
     height: TOTAL_H,
+    floorRadius: FLOOR_SIZE / 2,
     assetsReady: Promise.all(assetLoads),
     update: (camera, dt) =>
       updaters.reduce((busy, u) => u(camera, dt) || busy, false),

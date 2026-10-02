@@ -42,9 +42,9 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
 
 Drag / one-finger to orbit round the obelisk (horizontally only — the
 camera stays level); right-drag (or shift-drag) or two-finger drag
-to pan up/down and side to side; mouse wheel, pinch or the on-screen
-buttons to zoom (toward the point under the cursor, right up to a panel);
-tap a QR code to open its modal.
+to pan up and down (never side to side); mouse wheel, pinch or the on-screen
+buttons to zoom (in toward the point under the cursor, right up to a
+panel; out back to the starting view); tap a QR code to open its modal.
 
 ## Modal URLs
 
