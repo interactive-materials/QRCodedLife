@@ -40,7 +40,8 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
   `lens-c` or `lens-r` depending on the viewing angle (see `routes.js`).
 - **Face 3** — blank, no QR codes.
 
-Drag / one-finger to orbit; right-drag (or shift-drag) or two-finger drag
+Drag / one-finger to orbit round the obelisk (horizontally only — the
+camera stays level); right-drag (or shift-drag) or two-finger drag
 to pan up/down and side to side; mouse wheel, pinch or the on-screen
 buttons to zoom (toward the point under the cursor, right up to a panel);
 tap a QR code to open its modal.
@@ -56,9 +57,8 @@ with `../` asset paths.
 
 The `angle` panel is a 3D perspective QR prism (ported from the
 PerspectiveQR-Generator, see `assets/js/obelisk/perspective-prism.js`).
-Its QR only lines up from its scan point, 150mm straight out from the
-face, so it stays dimmed and unclickable until the camera is there, then
-lights up. Zoom in on it and orbit round to face it square-on.
+White, with a blue QR that only lines up from its scan point, 150mm
+straight out from the face. It can be tapped from any angle.
 
 All modal copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
 

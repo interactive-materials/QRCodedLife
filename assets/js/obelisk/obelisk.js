@@ -1,6 +1,6 @@
 /* ==========================================================================
    obelisk.js — builds the triangular obelisk in the style of the exhibition
-   poster: a dark 3-sided shaft on a stepped plinth, capped by a pyramidion.
+   poster: a dark 3-sided shaft with a flat top, standing on a white floor.
 
    The 3 shaft faces are not identical:
      Face 1 — three fixed-size panels: anatomy (250mm x 190mm) and
@@ -24,9 +24,8 @@
                                 loaded; re-render then)
      update,     (camera, dt) => bool
                                (call every frame: updates camera-dependent
-                                state — the angle prism's scannable look,
-                                the lenticular panel's view; true while
-                                still animating)
+                                state — the lenticular panel's view; true
+                                while still animating)
    }
 
    World units are metres.
@@ -36,30 +35,21 @@ import * as THREE from "three";
 import {
   buildPerspectivePrism,
   PRISM,
-  setPrismHover,
-  updatePrismScan,
 } from "./perspective-prism.js";
 
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
 const SHAFT_H = 2.0; // shaft height
-const PYRAMIDION_H = 0.3; // pointed cap
-const STEP1_H = 0.1; // upper base step
-const STEP2_H = 0.09; // lower base step (widest)
+const FLOOR_SIZE = 10; // floor disc diameter (m)
 
 const R = SIDE / Math.sqrt(3); // shaft circumradius
 const APOTHEM = R / 2; // shaft centre -> face
-const STEP1_W = SIDE * 1.35; // upper plinth step (square)
-const STEP2_W = SIDE * 1.7; // lower plinth step (square, widest)
 
-const ALIGN_ROT = Math.PI / 3; // rotate the shaft/cap so a face points +Z
+const ALIGN_ROT = Math.PI / 3; // rotate the shaft so a face points +Z
 
-// local y layout, base sitting at y = 0
-const Y_STEP2 = STEP2_H / 2;
-const Y_STEP1 = STEP2_H + STEP1_H / 2;
-const Y_SHAFT = STEP2_H + STEP1_H + SHAFT_H / 2;
-const Y_PYRAMIDION = STEP2_H + STEP1_H + SHAFT_H + PYRAMIDION_H / 2;
-const TOTAL_H = STEP2_H + STEP1_H + SHAFT_H + PYRAMIDION_H;
+// local y layout, base sitting on the floor at y = 0
+const Y_SHAFT = SHAFT_H / 2;
+const TOTAL_H = SHAFT_H;
 
 /* ---- panel layout ---------------------------------------------------- */
 const FACE_MARGIN_Y = 0.06;
@@ -164,16 +154,15 @@ const F2_PANELS = [
     card: {
       radius: 5,
       qrBox: [31.7, 12.7, 114],
-      qrFrac: 926 / 1000,
+      qrFrac: 1150 / 1218,
       lenticular: {
         // left to right, as seen moving round the panel from its left
         views: [
-          { slug: "lens-l", qr: "lens-l/assets/lens-l.png", frame: "lens-l/assets/frame1.png" },
-          { slug: "lens-c", qr: "lens-c/assets/lens-c.png", frame: "lens-c/assets/frame2.png" },
-          { slug: "lens-r", qr: "lens-r/assets/lens-r.png", frame: "lens-r/assets/frame3.png" },
+          { slug: "lens-l", qr: "lens-l/assets/1_left.png" },
+          { slug: "lens-c", qr: "lens-c/assets/2_center.png" },
+          { slug: "lens-r", qr: "lens-r/assets/3_right.png" },
         ],
         spreadDeg: 30, // views split the angles -30..+30deg evenly; beyond, the end views
-        circleFrac: 0.165, // centre circle diameter / QR image width
       },
     },
   },
@@ -518,7 +507,7 @@ function makeCardPanel(qrId, w, h, card, seed) {
   let ready = Promise.resolve();
   if (card.lenticular) {
     qr.scale.setScalar(qs / (card.qrFrac || 1));
-    ready = makeLenticular(panel, qr, qrMat, qs / (card.qrFrac || 1), card.lenticular);
+    ready = makeLenticular(panel, qr, qrMat, card.lenticular);
   } else if (card.qr) {
     qr.scale.setScalar(qs / (card.qrFrac || 1));
     qr.visible = false;
@@ -539,8 +528,7 @@ function makeCardPanel(qrId, w, h, card, seed) {
 }
 
 /* ---- lenticular QR -----------------------------------------------------
-   After the lenticular simulator: one QR per view, each with its own
-   frame image clipped to a circle over the QR's centre. Which view shows
+   After the lenticular simulator: one QR image per view. Which view shows
    depends on the camera's horizontal angle to the panel — the angles
    -spreadDeg..+spreadDeg split evenly between the views, left to right,
    and past either end the end view holds, like the flip of a real
@@ -548,22 +536,8 @@ function makeCardPanel(qrId, w, h, card, seed) {
    opens that view's page. Call panel.userData.lens.update(camera) each
    frame.
    ------------------------------------------------------------------- */
-function makeLenticular(panel, qr, qrMat, qrSize, lens) {
-  // white circle base, with the (mostly transparent) frame image over it
-  const circleGeo = new THREE.CircleGeometry((qrSize * lens.circleFrac) / 2, 48);
-  const circle = new THREE.Mesh(
-    circleGeo,
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-  );
-  circle.position.copy(qr.position);
-  circle.position.z += 0.0005;
-  const circleMat = new THREE.MeshBasicMaterial({ transparent: true });
-  const frame = new THREE.Mesh(circleGeo, circleMat);
-  frame.position.z = 0.0005;
-  circle.add(frame);
-  panel.add(circle);
-
-  const views = lens.views.map((v) => ({ ...v, qrTex: null, frameTex: null }));
+function makeLenticular(panel, qr, qrMat, lens) {
+  const views = lens.views.map((v) => ({ ...v, qrTex: null }));
   const spread = THREE.MathUtils.degToRad(lens.spreadDeg);
   const local = new THREE.Vector3();
   let current = -1;
@@ -573,8 +547,6 @@ function makeLenticular(panel, qr, qrMat, qrSize, lens) {
     current = i;
     qrMat.map = views[i].qrTex;
     qrMat.needsUpdate = true;
-    circleMat.map = views[i].frameTex;
-    circleMat.needsUpdate = true;
     panel.userData.slug = views[i].slug;
   };
 
@@ -588,20 +560,17 @@ function makeLenticular(panel, qr, qrMat, qrSize, lens) {
     },
   };
 
-  qr.visible = circle.visible = false;
+  qr.visible = false;
   return Promise.all(
     views.map((v) =>
-      Promise.all([loadTexture(v.qr, true), loadTexture(v.frame)]).then(
-        ([qrTex, frameTex]) => {
-          v.qrTex = qrTex;
-          v.frameTex = frameTex;
-        },
-      ),
+      loadTexture(v.qr, true).then((qrTex) => {
+        v.qrTex = qrTex;
+      }),
     ),
   )
     .then(() => {
       show(Math.floor(views.length / 2)); // centre view until the camera says otherwise
-      qr.visible = circle.visible = true;
+      qr.visible = true;
     })
     .catch((err) => console.error("obelisk: could not load lenticular views", err));
 }
@@ -735,8 +704,6 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
     } else if (prism) {
       panel = buildPerspectivePrism();
       panel.userData.qrId = qrId;
-      const prismPanel = panel;
-      updaters.push((camera, dt) => updatePrismScan(prismPanel, camera, dt));
       panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.001);
     } else {
       panel = makePanel(
@@ -786,7 +753,7 @@ function makeFace(faceIndex, qrTargets, assetLoads, updaters) {
   return group;
 }
 
-/* ---- triangular prism (shaft) / pyramidion ------------------------- */
+/* ---- triangular prism (shaft) ------------------------------------- */
 function triPrism(radiusTop, radiusBottom, height, material) {
   const geo = new THREE.CylinderGeometry(
     radiusTop,
@@ -822,7 +789,7 @@ function makeContactShadow(y) {
   ctx.fillRect(0, 0, size, size);
 
   const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(STEP2_W * 1.7, 48),
+    new THREE.CircleGeometry(SIDE * 2, 48),
     new THREE.MeshBasicMaterial({
       map: new THREE.CanvasTexture(canvas),
       transparent: true,
@@ -841,8 +808,8 @@ export function buildObelisk() {
   const group = new THREE.Group();
   const qrTargets = [];
   const assetLoads = [];
-  // per-frame, camera-dependent updates (the angle prism's scannable look,
-  // the lenticular panel's view); each returns true while animating
+  // per-frame, camera-dependent updates (the lenticular panel's view);
+  // each returns true while animating
   const updaters = [];
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -851,27 +818,20 @@ export function buildObelisk() {
     metalness: 0.04,
   });
 
-  // stepped square plinth (wider than the triangular shaft)
-  const step2 = new THREE.Mesh(
-    new THREE.BoxGeometry(STEP2_W, STEP2_H, STEP2_W),
-    bodyMaterial,
-  );
-  step2.position.y = Y_STEP2;
-  const step1 = new THREE.Mesh(
-    new THREE.BoxGeometry(STEP1_W, STEP1_H, STEP1_W),
-    bodyMaterial,
-  );
-  step1.position.y = Y_STEP1;
-
-  // triangular shaft
+  // triangular shaft, flat-topped
   const shaft = triPrism(R, R, SHAFT_H, bodyMaterial);
   shaft.position.y = Y_SHAFT;
 
-  // pyramidion (3-sided pointed cap)
-  const cap = triPrism(0.0001, R, PYRAMIDION_H, bodyMaterial);
-  cap.position.y = Y_PYRAMIDION;
+  // plain white floor disc, 10m across; ignored by picking and
+  // zoom so zooming at it never drags the orbit target down to it
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(FLOOR_SIZE / 2, 96),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.userData.ignoreRaycast = true;
 
-  group.add(step2, step1, shaft, cap);
+  group.add(floor, shaft);
   group.add(makeContactShadow(0));
 
   // faces live on the shaft; parent them to a group at the shaft centre
@@ -897,12 +857,6 @@ export function buildObelisk() {
 /* ---- hover feedback ------------------------------------------------- */
 export function setPanelHover(panel, hovered) {
   if (!panel) return;
-  if (panel.userData.scan) {
-    // the perspective prism manages its own glow (see perspective-prism.js)
-    setPrismHover(panel, hovered);
-    panel.scale.setScalar(hovered ? 1.03 : 1);
-    return;
-  }
   // every lit part glows (a card, or each face of the perspective prism)
   panel.traverse((obj) => {
     if (obj.material && obj.material.emissive)

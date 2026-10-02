@@ -5,15 +5,13 @@
    copy of this page, since GitHub Pages has no server-side rewrites —
    opens that modal on load, so a scanned QR lands here.
 
-   Controls: one-finger / left-drag orbits. Right-drag (or shift-drag)
-   and a two-finger touch drag pan the view up/down and side to side.
+   Controls: one-finger / left-drag orbits round the obelisk's vertical
+   axis only — the camera stays level, never tilting up or down.
+   Right-drag (or shift-drag) and a two-finger touch drag pan the view
+   up/down and side to side.
    The mouse wheel, pinch (touch) or trackpad pinch zooms toward the point
    under the cursor / fingers; the +/- buttons zoom toward the middle of
    the view.
-
-   The angle prism's QR only reads from its scan point, so it is
-   clickable only while the camera is lined up there (see
-   perspective-prism.js) — obelisk.update() tracks that each frame.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -39,6 +37,9 @@ const MIN_ZOOM_DIST = 0.06;
 let farMinDist = 1;
 // the camera never gets closer than this to the obelisk's surface (m)
 const SURFACE_MARGIN = 0.02;
+// the closest keepCameraOutside may pull the camera to its target (m);
+// also OrbitControls' own minDistance, so the two never fight over it
+const MIN_ORBIT_DIST = MIN_ZOOM_DIST / 2;
 // field of view widens from FAR_FOV to a phone-camera-like CLOSE_FOV as
 // the camera closes in on its target (between FOV_RANGE, m), so the angle
 // prism fits on screen from its 150mm scan point
@@ -51,7 +52,7 @@ const PAN_RADIUS = 0.6;
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
 let hoveredPanel = null;
-const down = { x: 0, y: 0, t: 0, valid: false };
+const down = { x: 0, y: 0, t: 0, valid: false, tap: false };
 
 // active touch pointers (id -> {x, y}), for two-finger scroll + pinch
 const touches = new Map();
@@ -105,8 +106,9 @@ function init() {
   controls.touches.TWO = null;
   controls.rotateSpeed = 0.9;
   controls.zoomSpeed = 0.9;
-  controls.minPolarAngle = Math.PI * 0.12;
-  controls.maxPolarAngle = Math.PI * 0.88;
+  // level camera: orbit horizontally only
+  controls.minPolarAngle = Math.PI / 2;
+  controls.maxPolarAngle = Math.PI / 2;
   controls.target.set(0, 0, 0);
   controls.addEventListener("change", () => {
     clampTarget();
@@ -172,14 +174,14 @@ function frameCamera(keepDirection = false) {
 
   const dir = keepDirection
     ? camera.position.clone().sub(controls.target).normalize()
-    : new THREE.Vector3(0.92, 0.26, 0.55).normalize();
+    : new THREE.Vector3(0.92, 0, 0.55).normalize();
 
   camera.position.copy(dir.multiplyScalar(dist).add(controls.target));
   camera.near = 0.01; // near enough for close-up zoom
   camera.far = dist * 10;
   camera.updateProjectionMatrix();
 
-  controls.minDistance = MIN_ZOOM_DIST;
+  controls.minDistance = MIN_ORBIT_DIST;
   farMinDist = dist * 0.45;
   controls.maxDistance = dist * 1.7;
   controls.update();
@@ -200,13 +202,6 @@ function tick(now) {
   const moving = controls.update();
   updateFov();
   const animating = obelisk.update(camera, dt);
-  // a panel that just locked (e.g. the prism moving out of alignment)
-  // stops being hovered
-  if (hoveredPanel && hoveredPanel.userData.locked) {
-    setPanelHover(hoveredPanel, false);
-    hoveredPanel = null;
-    canvas.style.cursor = "";
-  }
   renderer.render(scene, camera);
   if (moving || animating) requestRender();
 }
@@ -244,7 +239,7 @@ function pickPanel() {
     let o = hit.object;
     while (o) {
       if (o.userData && o.userData.qrId) {
-        return o.userData.disabled || o.userData.locked ? null : o;
+        return o.userData.disabled ? null : o;
       }
       o = o.parent;
     }
@@ -258,14 +253,24 @@ function onPointerDown(e) {
   down.y = e.clientY;
   down.t = performance.now();
   down.valid = true;
+  down.tap = false;
 }
 
+// pointerup only decides whether the press was a tap; the modal opens on
+// the click that follows. Opening it on pointerup instead breaks touch:
+// the browser's click after a tap is aimed at whatever is under the finger
+// by then — the just-opened modal's backdrop — which closes it again.
 function onPointerUp(e) {
   if (!down.valid) return;
   down.valid = false;
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   const dt = performance.now() - down.t;
-  if (moved > 6 || dt > 600) return;
+  down.tap = moved <= 6 && dt <= 600;
+}
+
+function onClick(e) {
+  if (!down.tap) return;
+  down.tap = false;
 
   setNDC(e);
   const panel = pickPanel();
@@ -333,7 +338,7 @@ function keepCameraOutside() {
   raycaster.near = 0;
   raycaster.far = Infinity;
   if (hit) {
-    const d = Math.max(MIN_ZOOM_DIST / 2, hit.distance - SURFACE_MARGIN);
+    const d = Math.max(MIN_ORBIT_DIST, hit.distance - SURFACE_MARGIN);
     camera.position.copy(controls.target).addScaledVector(dir, d);
   }
 }
@@ -420,7 +425,7 @@ function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
   // only zoom right in when zooming at the obelisk itself; never let a
   // zoom-in push the camera back out
   const dist = camera.position.distanceTo(controls.target);
-  const minDist = Math.min(hit ? controls.minDistance : farMinDist, dist);
+  const minDist = Math.min(hit ? MIN_ZOOM_DIST : farMinDist, dist);
   const clampedDist = THREE.MathUtils.clamp(
     dist * factor,
     minDist,
@@ -439,6 +444,7 @@ function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
 function addEventListeners() {
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("click", onClick);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   canvas.addEventListener("pointerdown", onTouchPointerDown);

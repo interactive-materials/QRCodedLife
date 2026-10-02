@@ -6,8 +6,8 @@
    A hip-roof solid: a W x L base, a ridge of length R at height H. The QR
    graphic is pre-warped across the two trapezoid slopes so it only
    resolves into a clean, scannable square when seen from straight on, a
-   scan distance D above the ridge. The two triangular hip ends are plain,
-   in a lighter tint of the prism colour.
+   scan distance D above the ridge. The two triangular hip ends are plain
+   prism colour.
 
    Generator coordinates (kept here, in cm, so the maths ports 1:1):
    X = width, Y = height (up, out of the base), Z = length (ridge
@@ -19,9 +19,7 @@
    buildPerspectivePrism() returns a THREE.Group in metres, oriented for an
    obelisk face: base on the face's z=0 plane, height along +z, width
    along x, ridge running up/down (y). Footprint W x L = 210mm x 160mm.
-
-   It is only "scannable" — lit up and clickable — while the camera sits
-   at the scan point; call updatePrismScan() every frame (see below).
+   It is always clickable, from any angle.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -33,14 +31,13 @@ export const PRISM = {
   R: 8, // ridge length
   H: 5, // height out of the face
   viewDist: 10, // scan distance above the ridge top
-  prismColor: "#112777",
-  qrColor: "#ffffff",
+  prismColor: "#ffffff", // white body
+  qrColor: "#112777", // blue QR modules (the obelisk's blue)
 };
 
 const GRID_N = 28; // mesh subdivisions per face
 const BAKE_RES = 512;
 const BUFFER_CM = 1; // total QR buffer (0.5cm per edge)
-const TRIANGLE_TINT_FRAC = 0.35; // hip ends: this much lighter than the prism
 const MIN_VIEW_DIST_CM = 0.5;
 const MIN_MODULE_AREA_CM2 = 1e-6;
 const CM = 0.01;
@@ -353,47 +350,11 @@ function faceMaterial(params) {
   });
 }
 
-/* ---- "scannable" state -----------------------------------------------
-   The QR only resolves from the scan point: straight out from the
-   prism's base centre, H + viewDist (150mm) in front of the face. The
-   prism counts as scannable while the camera is within SCAN_MAX_ANGLE of
-   that line, at SCAN_DIST_RANGE x the scan distance, with the prism on
-   screen. Otherwise it is dimmed and not clickable (userData.locked);
-   when scannable it lights up, the QR modules glowing.
-
-   Everywhere else it sits at BASE_LEVEL. In between, a transition state:
-   with the prism on screen and within TRANSITION_MAX_ANGLE of straight-on
-   but not fully scannable, it lights up further in steps by distance
-   (TRANSITION_STEPS), but is still not clickable. Only the scan point
-   lights it fully.
-   ------------------------------------------------------------------- */
-const SCAN_MAX_ANGLE = THREE.MathUtils.degToRad(10);
-const TRANSITION_MAX_ANGLE = THREE.MathUtils.degToRad(40);
-const BASE_LEVEL = 0.2; // look level (0 dimmed .. 1 lit) outside any step
-// [within this many m of the prism's base centre, look level added on top
-// of BASE_LEVEL], nearest first; further than the last step stays at
-// BASE_LEVEL
-const TRANSITION_STEPS = [
-  [3, 0.6],
-  [6, 0.3],
-];
-const SCAN_DIST_RANGE = [0.75, 1.35];
-const SCAN_ON_SCREEN = 0.85; // prism centre within this much of the view (NDC)
-const DIM = 0.55; // colour multiplier while not scannable
-const QR_GLOW = 0.45; // QR module glow when scannable
-const HIP_GLOW = 0.25;
-const HOVER_GLOW = 0.2;
-const FADE_PER_S = 15; // 1 / fade time
-
 /* ---- public builder ------------------------------------------------- */
 export function buildPerspectivePrism(s = PRISM) {
   const fc = faceCornerSets(computeVertices(s));
   const sizeCm = qrSizeCm(s);
   const camHeight = revealCameraHeight(s);
-  const prismColor = new THREE.Color(s.prismColor);
-  const hipColor = prismColor
-    .clone()
-    .lerp(new THREE.Color(0xffffff), TRIANGLE_TINT_FRAC);
 
   // generator space (cm, Y up) -> face space (m, +z out of the face):
   // rotating +90deg about x sends Y -> +z and -Z -> +y, so the reveal
@@ -402,93 +363,18 @@ export function buildPerspectivePrism(s = PRISM) {
   inner.rotation.x = Math.PI / 2;
   inner.scale.setScalar(CM);
 
-  const slopes = [];
   for (const name of ["front", "back"]) {
     const map = bakeFaceTexture(fc[name], sizeCm, camHeight, s.prismColor, s.qrColor);
-    // emissiveMap = the same graphic, so only the QR modules glow
+    // emissiveMap = the same graphic, so the hover glow lifts it evenly
     const mat = faceMaterial({ map, emissiveMap: map, emissive: 0xffffff });
-    slopes.push(mat);
     inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
-  const hips = [];
   for (const name of ["left", "right"]) {
-    const mat = faceMaterial({ color: hipColor, emissive: hipColor });
-    hips.push(mat);
+    const mat = faceMaterial({ color: s.prismColor, emissive: s.prismColor });
     inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
 
   const group = new THREE.Group();
   group.add(inner);
-  group.userData.scan = {
-    eyeDist: (s.H + s.viewDist) * CM,
-    level: BASE_LEVEL, // 0 = dimmed .. 1 = lit
-    scannable: false,
-    hovered: false,
-    slopes,
-    hips,
-    hipColor,
-  };
-  group.userData.locked = true;
-  applyScanLevel(group.userData.scan, BASE_LEVEL);
   return group;
-}
-
-function applyScanLevel(scan, level) {
-  scan.level = level;
-  const k = DIM + (1 - DIM) * level;
-  const hover = scan.hovered ? HOVER_GLOW : 0;
-  for (const m of scan.slopes) {
-    m.color.setScalar(k);
-    m.emissiveIntensity = level * QR_GLOW + hover;
-  }
-  for (const m of scan.hips) {
-    m.color.copy(scan.hipColor).multiplyScalar(k);
-    m.emissiveIntensity = level * HIP_GLOW + hover;
-  }
-}
-
-const _local = new THREE.Vector3();
-const _ndc = new THREE.Vector3();
-
-// Updates `prism`'s scannable state for `camera` and eases its look
-// toward it. Returns true while still fading (keep rendering).
-export function updatePrismScan(prism, camera, dt) {
-  const scan = prism.userData.scan;
-
-  _local.copy(camera.position);
-  prism.worldToLocal(_local); // base centre at the origin, +z out of the face
-  const dist = _local.length();
-  const angle = Math.acos(THREE.MathUtils.clamp(_local.z / (dist || 1), -1, 1));
-  prism.getWorldPosition(_ndc).project(camera);
-  const onScreen =
-    _ndc.z < 1 &&
-    Math.abs(_ndc.x) <= SCAN_ON_SCREEN &&
-    Math.abs(_ndc.y) <= SCAN_ON_SCREEN;
-  scan.scannable =
-    onScreen &&
-    angle <= SCAN_MAX_ANGLE &&
-    dist >= scan.eyeDist * SCAN_DIST_RANGE[0] &&
-    dist <= scan.eyeDist * SCAN_DIST_RANGE[1];
-  prism.userData.locked = !scan.scannable;
-
-  let target = BASE_LEVEL;
-  if (scan.scannable) target = 1;
-  else if (onScreen && angle <= TRANSITION_MAX_ANGLE) {
-    // transition: a brighter step the nearer the camera comes
-    const step = TRANSITION_STEPS.find(([maxDist]) => dist <= maxDist);
-    if (step) target = BASE_LEVEL + step[1];
-  }
-  const step = FADE_PER_S * dt;
-  const level =
-    Math.abs(target - scan.level) <= step
-      ? target
-      : scan.level + Math.sign(target - scan.level) * step;
-  applyScanLevel(scan, level);
-  return level !== target;
-}
-
-export function setPrismHover(prism, hovered) {
-  const scan = prism.userData.scan;
-  scan.hovered = hovered;
-  applyScanLevel(scan, scan.level);
 }
