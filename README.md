@@ -1,22 +1,24 @@
 # QRCodedLife
 
 Static site for the QRCodedLife exhibition: a navigable 3D obelisk where each
-active QR code links to its own page. No build step.
+active QR code opens a modal about it. No build step.
 
 ## Structure
 
 ```
 index.html                 the obelisk scene
 anatomy/, contrast/, reliable/
-                            face 1's 3 pages
+                            face 1's 3 modal URLs
 tiles/, handdrawn/, lens-c/, lens-l/, lens-r/, angle/, color/, scam/
-                            face 2's pages (lens-l/lens-r not yet linked)
+                            face 2's modal URLs
+                            (each folder's index.html is a copy of the root
+                            one with ../ paths — keep them in sync)
 assets/css/                base.css (shared) + obelisk.css (3D stage/HUD)
 assets/js/obelisk/
   obelisk.js                  builds the 3D obelisk + its faces/panels
-  routes.js                   QR id -> page slug map
-  qr-content.js                <- edit this to write the page copy
-  qr-page.js                   fills a page from its `data-qr-id`
+  routes.js                   QR id -> URL slug map
+  qr-content.js                <- edit this to write the modal copy
+  modal.js                     native <dialog> wrapper for the modal
   main.js                      scene bootstrap, camera, input, routing
 assets/vendor/three/        pinned Three.js + OrbitControls (only dependency)
 ```
@@ -34,16 +36,23 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
   top-left, then `handdrawn`, `angle`, `lens-c`, `color` and `scam`
   zig-zag down, with the "Q(art) codes by …" credits bottom-left.
 
-  The 3 lenticular pages share one physical panel — for now only `lens-c`
-  renders and links; `lens-l` and `lens-r` exist as standalone pages but
-  have no obelisk panel until the lenticular viewing-angle effect is
-  implemented (see `routes.js`).
+  The 3 lenticular views share one physical panel, which shows `lens-l`,
+  `lens-c` or `lens-r` depending on the viewing angle (see `routes.js`).
 - **Face 3** — blank, no QR codes.
 
 Drag / one-finger to orbit; right-drag (or shift-drag) or two-finger drag
 to pan up/down and side to side; mouse wheel, pinch or the on-screen
 buttons to zoom (toward the point under the cursor, right up to a panel);
-tap a QR code to open its page.
+tap a QR code to open its modal.
+
+## Modal URLs
+
+Opening a modal changes the URL to `/<slug>/` (e.g. `/color/`) without a
+reload; closing it, or the browser's back button, returns to `/`. Loading
+`/<slug>/` directly — e.g. by scanning a printed QR code — shows the obelisk
+with that modal already open. GitHub Pages has no server-side rewrites, so
+each slug is a real folder whose `index.html` is a copy of the root page
+with `../` asset paths.
 
 The `angle` panel is a 3D perspective QR prism (ported from the
 PerspectiveQR-Generator, see `assets/js/obelisk/perspective-prism.js`).
@@ -51,7 +60,7 @@ Its QR only lines up from its scan point, 150mm straight out from the
 face, so it stays dimmed and unclickable until the camera is there, then
 lights up. Zoom in on it and orbit round to face it square-on.
 
-All page copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
+All modal copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
 
 ## Run locally
 

@@ -9,7 +9,7 @@
     <title>The Obelisk — Coded Life</title>
     <meta
       name="description"
-      content="Navigable 3D obelisk. Tap a QR code to open its own page."
+      content="Navigable 3D obelisk. Tap a QR code to learn about it."
     />
     <link
       rel="icon"
@@ -50,8 +50,17 @@
         <button class="btn btn--icon" id="reset-view" type="button" aria-label="Reset view">&#8635;</button>
       </div>
 
-      <!-- <p class="hud__hint" id="hint">Tap a QR code to open its page</p> -->
+      <!-- <p class="hud__hint" id="hint">Tap a QR code to learn about it</p> -->
     </div>
+
+    <dialog class="modal" id="qr-modal" aria-labelledby="qr-modal-title">
+      <div class="modal__inner">
+        <button class="modal__close" id="qr-modal-close" type="button" aria-label="Close">&times;</button>
+        <p class="modal__eyebrow" id="qr-modal-eyebrow">QR code</p>
+        <h2 class="modal__title" id="qr-modal-title"></h2>
+        <div class="modal__body" id="qr-modal-body"></div>
+      </div>
+    </dialog>
 
     <script type="module" src="assets/js/obelisk/main.js"></script>
   </body>

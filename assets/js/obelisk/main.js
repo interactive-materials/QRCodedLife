@@ -1,6 +1,9 @@
 /* ==========================================================================
-   main.js — obelisk bootstrap. Tapping an active QR code is a plain
-   navigation to its own page (.../page-N/).
+   main.js — obelisk bootstrap. Tapping an active QR code opens its modal
+   and pushes the URL to .../<slug>/ (no reload); closing it pops back to
+   the base URL. Loading .../<slug>/ directly — a real folder holding a
+   copy of this page, since GitHub Pages has no server-side rewrites —
+   opens that modal on load, so a scanned QR lands here.
 
    Controls: one-finger / left-drag orbits. Right-drag (or shift-drag)
    and a two-finger touch drag pan the view up/down and side to side.
@@ -16,7 +19,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
-import { pageRoutes } from "./routes.js";
+import { initModal, openModal, closeModal, isModalOpen } from "./modal.js";
+import { pageRoutes, contentForSlug } from "./routes.js";
 
 const canvas = document.getElementById("scene");
 const statusEl = document.getElementById("status");
@@ -53,8 +57,25 @@ const down = { x: 0, y: 0, t: 0, valid: false };
 const touches = new Map();
 let twoFinger = null; // { midX, midY, dist } at the last two-finger move
 
-function basePath() {
+/* ---- URL <-> modal routing ------------------------------------------- */
+function dirPath() {
   return location.pathname.replace(/index\.html$/, "");
+}
+
+function slugFromPath() {
+  const m = dirPath().match(/([^/]+)\/?$/);
+  return m && contentForSlug[m[1]] ? m[1] : null;
+}
+
+function basePath() {
+  const slug = slugFromPath();
+  return slug ? dirPath().replace(new RegExp(slug + "/?$"), "") : dirPath();
+}
+
+function syncFromUrl() {
+  const slug = slugFromPath();
+  if (slug) openModal(contentForSlug[slug]);
+  else closeModal();
 }
 
 /* ---- init ------------------------------------------------------------- */
@@ -112,10 +133,23 @@ function init() {
   // once loaded
   obelisk.assetsReady.then(requestRender);
 
+  initModal();
+  document.addEventListener("modal:open", () => {
+    setPanelHover(hoveredPanel, false);
+    hoveredPanel = null;
+    canvas.style.cursor = "";
+    requestRender();
+  });
+  document.addEventListener("modal:close", () => {
+    if (slugFromPath()) history.pushState({}, "", basePath());
+  });
+  window.addEventListener("popstate", syncFromUrl);
+
   frameCamera();
   addEventListeners();
 
   statusEl.hidden = true;
+  syncFromUrl(); // open the modal on load if the URL points at one
   requestRender();
 }
 
@@ -236,14 +270,15 @@ function onPointerUp(e) {
   setNDC(e);
   const panel = pickPanel();
   if (panel) {
-    // a panel can override its page (the lenticular QR's current view)
+    // a panel can override its slug (the lenticular QR's current view)
     const slug = panel.userData.slug || pageRoutes[panel.userData.qrId];
-    window.location.href = basePath() + slug + "/";
+    openModal(contentForSlug[slug]);
+    history.pushState({ slug }, "", basePath() + slug + "/");
   }
 }
 
 function onPointerMove(e) {
-  if (!finePointer || down.valid) return;
+  if (!finePointer || down.valid || isModalOpen()) return;
   setNDC(e);
   const panel = pickPanel();
   if (panel === hoveredPanel) return;
@@ -436,7 +471,7 @@ function addEventListeners() {
   });
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "r") {
+    if (e.key === "r" && !isModalOpen()) {
       controls.target.set(0, 0, 0);
       frameCamera(false);
     }

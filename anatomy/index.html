@@ -2,8 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>QR code — The Obelisk — QRCodedLife</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>The Obelisk — Coded Life</title>
+    <meta
+      name="description"
+      content="Navigable 3D obelisk. Tap a QR code to learn about it."
+    />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7'%3E%3Cpath fill='%23111' d='M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z'/%3E%3C/svg%3E"
@@ -11,18 +18,50 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="../assets/css/base.css" />
+    <link rel="stylesheet" href="../assets/css/obelisk.css" />
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../assets/vendor/three/three.module.min.js",
+          "three/addons/controls/OrbitControls.js": "../assets/vendor/three/OrbitControls.js"
+        }
+      }
+    </script>
   </head>
-  <body data-qr-id="face1-1">
-    <main class="page">
-      <a class="btn page__back" href="../index.html">&larr; Back to the obelisk</a>
-      <p class="modal__eyebrow" id="qr-eyebrow">QR code</p>
-      <h1 class="modal__title" id="qr-title"></h1>
-      <div class="modal__body" id="qr-body"></div>
-    </main>
-    <script type="module" src="../assets/js/obelisk/qr-page.js"></script>
+  <body>
+    <div class="stage">
+      <canvas class="stage__canvas" id="scene"></canvas>
+      <div class="stage__status" id="status">Loading the obelisk…</div>
+    </div>
+
+    <div class="hud">
+      <div class="hud__topbar">
+        <span class="hud__title">Coded Life</span>
+      </div>
+
+      <div class="hud__controls">
+        <button class="btn btn--icon" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button class="btn btn--icon" id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
+        <button class="btn btn--icon" id="reset-view" type="button" aria-label="Reset view">&#8635;</button>
+      </div>
+
+      <!-- <p class="hud__hint" id="hint">Tap a QR code to learn about it</p> -->
+    </div>
+
+    <dialog class="modal" id="qr-modal" aria-labelledby="qr-modal-title">
+      <div class="modal__inner">
+        <button class="modal__close" id="qr-modal-close" type="button" aria-label="Close">&times;</button>
+        <p class="modal__eyebrow" id="qr-modal-eyebrow">QR code</p>
+        <h2 class="modal__title" id="qr-modal-title"></h2>
+        <div class="modal__body" id="qr-modal-body"></div>
+      </div>
+    </dialog>
+
+    <script type="module" src="../assets/js/obelisk/main.js"></script>
   </body>
 </html>

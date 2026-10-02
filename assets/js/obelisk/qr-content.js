@@ -1,5 +1,5 @@
 /* ==========================================================================
-   qr-content.js — the 11 page entries for the obelisk.
+   qr-content.js — the 11 modal entries for the obelisk.
 
    This is the file to edit when writing real copy.
    Keys map to the panels on the obelisk:
@@ -19,9 +19,9 @@
 
    Each entry: { eyebrow, title, body, image }
      eyebrow — small label above the title
-     title   — heading shown on the page
+     title   — heading shown in the modal
      body    — string, or array of paragraph strings; basic HTML allowed
-     image   — optional { src, alt }; src is resolved relative to the page
+     image   — optional { src, alt }; src is relative to the site root
    ========================================================================== */
 
 export const qrContent = {
@@ -83,7 +83,7 @@ export const qrContent = {
     image: null,
   },
 
-  // ---- Standalone, not yet wired to a panel -----------------------------
+  // ---- Lenticular panel's left / right views ---------------------------
   "lens-l": {
     eyebrow: "Lenticular · left",
     title: "Lenticular illusion — left",
