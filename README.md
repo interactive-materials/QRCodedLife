@@ -18,8 +18,10 @@ assets/js/obelisk/
   obelisk.js                  builds the 3D obelisk + its faces/panels
   routes.js                   QR id -> URL slug map
   qr-content.js                <- edit this to write the modal copy
+                               (aboutContent = the About modal)
   modal.js                     native <dialog> wrapper for the modal
   main.js                      scene bootstrap, camera, input, routing
+assets/img/about.svg        top-right icon that opens the About modal
 assets/vendor/three/        pinned Three.js + OrbitControls (only dependency)
 ```
 

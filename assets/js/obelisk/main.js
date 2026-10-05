@@ -18,7 +18,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
 import { buildSky, setSky, isEasing, skyForSlug, animated as skyAnimated } from "./background.js";
-import { initModal, openModal, closeModal, isModalOpen } from "./modal.js";
+import { initModal, initAbout, openModal, closeModal, isModalOpen } from "./modal.js";
 import { pageRoutes, contentForSlug } from "./routes.js";
 
 const canvas = document.getElementById("scene");
@@ -146,6 +146,7 @@ function init() {
   obelisk.assetsReady.then(requestRender);
 
   initModal();
+  initAbout();
   document.addEventListener("modal:open", (e) => {
     const { qrId } = e.detail;
     setSky(sky, skyForSlug[pageRoutes[qrId] ?? qrId]);

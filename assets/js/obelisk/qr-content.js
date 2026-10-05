@@ -97,3 +97,15 @@ export const qrContent = {
     image: null,
   },
 };
+
+// ---- About modal — opened by the icon at the top right ------------------
+// Same shape as a qrContent entry.
+export const aboutContent = {
+  eyebrow: "About",
+  title: "Coded Life",
+  body: [
+    "A navigable 3D obelisk for the QRCodedLife exhibition. Drag to walk round it, pinch or scroll to zoom, and tap a QR code to learn about it.",
+    "Placeholder copy — replace with the exhibition's about text and credits.",
+  ],
+  image: null,
+};

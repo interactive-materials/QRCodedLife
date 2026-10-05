@@ -1,0 +1,40 @@
+<svg width="630" height="630" viewBox="0 0 630 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M120 121H15V16H120V121ZM30 31V106H105V31H30Z" fill="black"/>
+<rect x="45" y="46" width="45" height="45" fill="black"/>
+<path d="M120 615H15V510H120V615ZM30 525V600H105V525H30Z" fill="black"/>
+<rect x="45" y="540" width="45" height="45" fill="black"/>
+<path d="M615 120H510V15H615V120ZM525 30V105H600V30H525Z" fill="black"/>
+<rect x="540" y="45" width="45" height="45" fill="black"/>
+<path d="M345 571H270V496H345V571ZM285 511V556H330V511H285Z" fill="black"/>
+<rect x="300" y="526" width="15" height="15" fill="black"/>
+<rect x="270" y="360" width="15" height="105" fill="black"/>
+<rect x="270" y="465" width="15" height="15" fill="black"/>
+<rect x="345" y="375" width="15" height="15" fill="black"/>
+<rect x="135" y="165" width="15" height="15" fill="black"/>
+<rect x="150" y="150" width="15" height="15" fill="black"/>
+<rect x="165" y="135" width="15" height="15" fill="black"/>
+<rect x="465" y="135" width="15" height="15" transform="rotate(90 465 135)" fill="black"/>
+<rect x="480" y="150" width="15" height="15" transform="rotate(90 480 150)" fill="black"/>
+<rect x="495" y="165" width="15" height="15" transform="rotate(90 495 165)" fill="black"/>
+<rect x="495" y="180" width="15" height="135" fill="black"/>
+<rect x="360" y="360" width="90" height="15" fill="black"/>
+<rect x="285" y="345" width="15" height="15" fill="black"/>
+<rect x="300" y="329" width="15" height="15" fill="black"/>
+<rect x="450" y="345" width="15" height="15" fill="black"/>
+<rect x="465" y="330" width="15" height="15" fill="black"/>
+<rect x="480" y="314" width="15" height="15" fill="black"/>
+<rect x="315" y="314" width="15" height="15" fill="black"/>
+<rect x="330" y="300" width="75" height="15" fill="black"/>
+<rect x="135" y="255" width="90" height="15" fill="black"/>
+<rect x="405" y="300" width="90" height="15" transform="rotate(-90 405 300)" fill="black"/>
+<rect x="210" y="270" width="60" height="15" transform="rotate(-90 210 270)" fill="black"/>
+<rect x="120" y="270" width="90" height="15" transform="rotate(-90 120 270)" fill="black"/>
+<rect x="225" y="195" width="180" height="15" fill="black"/>
+<rect x="180" y="120" width="270" height="15" fill="black"/>
+<rect x="285" y="465" width="15" height="15" fill="black"/>
+<rect x="300" y="465" width="15" height="15" fill="black"/>
+<rect x="315" y="465" width="15" height="15" fill="black"/>
+<rect x="330" y="465" width="15" height="15" fill="black"/>
+<rect x="330" y="390" width="15" height="75" fill="black"/>
+<path d="M135 256V181.5L180.5 135.5H450.5L495 181.5V314L450.5 360H377.5L331 405.5V466.5H285.5V360L331 314H405V300H419.5V210H405V195H224.5V210H211.5V256H135Z" fill="black" stroke="black"/>
+</svg>
