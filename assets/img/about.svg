@@ -7,6 +7,8 @@
 <rect x="540" y="45" width="45" height="45" fill="black"/>
 <path d="M345 571H270V496H345V571ZM285 511V556H330V511H285Z" fill="black"/>
 <rect x="300" y="526" width="15" height="15" fill="black"/>
+<path d="M549 549H474V474H549V549ZM489 489V534H534V489H489Z" fill="black"/>
+<rect x="504" y="504" width="15" height="15" fill="black"/>
 <rect x="270" y="360" width="15" height="105" fill="black"/>
 <rect x="270" y="465" width="15" height="15" fill="black"/>
 <rect x="345" y="375" width="15" height="15" fill="black"/>
@@ -36,5 +38,4 @@
 <rect x="315" y="465" width="15" height="15" fill="black"/>
 <rect x="330" y="465" width="15" height="15" fill="black"/>
 <rect x="330" y="390" width="15" height="75" fill="black"/>
-<path d="M135 256V181.5L180.5 135.5H450.5L495 181.5V314L450.5 360H377.5L331 405.5V466.5H285.5V360L331 314H405V300H419.5V210H405V195H224.5V210H211.5V256H135Z" fill="black" stroke="black"/>
 </svg>
