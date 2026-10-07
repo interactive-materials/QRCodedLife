@@ -162,11 +162,12 @@ export default function render({ titleId }) {
 /* ---- canvas -------------------------------------------------------------
    Layout, in CSS px: the QR (a square, as big as fits) with the four
    sliders SLIDERS_GAP to its right, the group centred in the canvas. Each
-   slider is a vertical track as tall as the QR, in a column SLIDER_W
-   wide; its ends sit a thumb's radius in, so the thumb stays within the
-   QR's height. A thumb is drawn in its colour's current shade.
+   slider is a vertical track SLIDER_LENGTH of the QR's height, centred on
+   it, in a column SLIDER_W wide. A thumb is drawn in its colour's current
+   shade.
    ------------------------------------------------------------------------ */
 const SLIDERS_GAP = 1; // between the QR and the sliders (rem)
+const SLIDER_LENGTH = 0.6; // a track's length, as a share of the QR's height
 const SLIDER_W = 1.25; // one slider's column (rem)
 const SLIDER_SPACING = 0.5; // between slider columns (rem)
 const THUMB_R = 0.5; // thumb radius (rem)
@@ -206,11 +207,11 @@ export function mount(root) {
     const size = Math.max(0, Math.min(height, width - gap - slidersW));
     const x = (width - (size + gap + slidersW)) / 2;
     const y = (height - size) / 2;
-    const inset = THUMB_R * r;
+    const length = size * SLIDER_LENGTH;
     tracks = inputs.map((_, i) => ({
       x: x + size + gap + i * (colW + spacing) + colW / 2,
-      y0: y + inset,
-      y1: y + size - inset,
+      y0: y + (size - length) / 2,
+      y1: y + (size + length) / 2,
     }));
     return { qr: { x, y, size }, r };
   }
