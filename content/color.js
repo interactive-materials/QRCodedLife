@@ -154,6 +154,9 @@ export function mount(root) {
   const input = canvas && canvas.querySelector("input[data-slider]");
   if (!canvas || !input) return null;
   const ctx = canvas.getContext("2d");
+  // dragging the slider on a touch screen mustn't pan or zoom instead
+  canvas.style.touchAction = "none";
+  // the QR drawn once per size: it doesn't change, the filter greys it
   const qrLayer = document.createElement("canvas");
   const qrCtx = qrLayer.getContext("2d");
 
@@ -192,8 +195,10 @@ export function mount(root) {
 
     const px = Math.round(qr.size * dpr);
     if (qrCode && px > 0) {
-      if (qrLayer.width !== px) qrLayer.width = qrLayer.height = px;
-      qrCode.draw(qrCtx, 0, 0, px, 1);
+      if (qrLayer.width !== px) {
+        qrLayer.width = qrLayer.height = px;
+        qrCode.draw(qrCtx, 0, 0, px, 1);
+      }
       const x = Math.round(qr.x * dpr) / dpr;
       const y = Math.round(qr.y * dpr) / dpr;
       ctx.drawImage(qrLayer, x, y, px / dpr, px / dpr);

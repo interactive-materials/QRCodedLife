@@ -7,6 +7,10 @@
    reload; main.js applies it on load. It is drawn by the
    html.is-greyscale rule in assets/css/base.css.
 
+   A slider drag sets the level many times a frame, so setGreyscale()
+   applies it once per animation frame and stores it SAVE_DELAY ms after
+   the last change (or as the page is hidden).
+
    Exports:
      getGreyscale()      the level, 0..1
      setGreyscale(t)     set, apply and remember the level
@@ -14,8 +18,11 @@
    ========================================================================== */
 
 const STORAGE_KEY = "coded-life:greyscale";
+const SAVE_DELAY = 300; // ms
 
 let level = read();
+let applyFrame = 0;
+let saveTimer = 0;
 
 function read() {
   try {
@@ -41,7 +48,17 @@ export function getGreyscale() {
 
 export function setGreyscale(t) {
   level = Math.min(Math.max(t, 0), 1);
-  apply(level);
+  applyFrame ||= requestAnimationFrame(() => {
+    applyFrame = 0;
+    apply(level);
+  });
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, SAVE_DELAY);
+}
+
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = 0;
   try {
     if (level > 0) localStorage.setItem(STORAGE_KEY, String(level));
     else localStorage.removeItem(STORAGE_KEY);
@@ -49,6 +66,11 @@ export function setGreyscale(t) {
     // storage blocked: the level still holds until the page reloads
   }
 }
+
+// a change still waiting to be stored is stored before the page goes
+addEventListener("pagehide", () => {
+  if (saveTimer) save();
+});
 
 export function applyGreyscale() {
   apply(level);

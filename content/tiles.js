@@ -33,7 +33,9 @@ const copy = {
   heading: "Make your own pattern:",
   removeAll: "Remove all",
   body: [
-    "Repeating a code as a tiled pattern turns a functional mark into a decorative surface. Placeholder copy.",
+    "QR code is usually seen as a functional graphic with its trademark black and white squares placed prominently around cashiers and dining tables.",
+    "Coded Nyonya recompose scannable QR code into colourful tiles which blend into the background.",
+    "Talk about the design of a QR code. (The marking square)",
   ],
 };
 
