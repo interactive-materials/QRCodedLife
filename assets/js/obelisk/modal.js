@@ -1,9 +1,19 @@
 /* ==========================================================================
    modal.js — native <dialog> wrapper for the QR pop-ups.
 
+   Each modal is its own file, content/<slug>.js, loaded on first open. A
+   file that default-exports a function renders itself (render({ titleId })
+   returns its HTML, as content/anatomy.js does); one that default-exports
+   copy ({ eyebrow, title, body, image }) is laid out by
+   content/modal-layout.js's renderModal(). A content file may also
+   export mount(contentEl) — e.g. to start its own canvas — called once its
+   HTML is in place; it returns a function that undoes it, called when the
+   modal closes or shows something else.
+
    Exports:
      initModal()        wire up the dialog once on page load
-     openModal(qrId)    fill + show the modal for a qr-content.js key
+     openModal(qrId)    load + fill + show the modal for a QR id (or a
+                        lens-l / lens-r slug)
      closeModal()       close it if open
      isModalOpen()      boolean (either modal)
      initAbout()        wire up the About modal and its top-right icon
@@ -13,34 +23,43 @@
      "modal:close"
    ========================================================================== */
 
-import { qrContent, aboutContent } from "./qr-content.js";
+import { renderModal } from "../../../content/modal-layout.js";
+import { pageRoutes } from "./routes.js";
 
-// image srcs are site-root relative, so they work from any slug folder
-const SITE_ROOT = new URL("../../../", import.meta.url);
+const CONTENT_DIR = new URL("../../../content/", import.meta.url);
 
 let dialog;
-let eyebrowEl;
-let titleEl;
-let bodyEl;
+let contentEl;
 let aboutDialog;
+let openToken = 0; // drops a slow load if another open/close happened since
+let unmount = null; // undoes the open modal's mount(), if it has one
 
-function paragraphs(body) {
-  const list = Array.isArray(body) ? body : [body];
-  return list
-    .filter(Boolean)
-    .map((p) => `<p>${p}</p>`)
-    .join("");
+// cached per slug, so reopening a modal doesn't refetch it
+const loaded = new Map();
+function loadContent(slug) {
+  if (!loaded.has(slug)) {
+    loaded.set(
+      slug,
+      import(new URL(`${slug}.js`, CONTENT_DIR).href),
+    );
+  }
+  return loaded.get(slug);
 }
 
 export function initModal() {
   dialog = document.getElementById("qr-modal");
-  eyebrowEl = document.getElementById("qr-modal-eyebrow");
-  titleEl = document.getElementById("qr-modal-title");
-  bodyEl = document.getElementById("qr-modal-body");
+  contentEl = document.getElementById("qr-modal-content");
 
   document
     .getElementById("qr-modal-close")
     .addEventListener("click", () => dialog.close());
+
+  // a [data-scroll-to] button scrolls its modal's text section to the
+  // element with that id
+  contentEl.addEventListener("click", (e) => {
+    const button = e.target.closest("[data-scroll-to]");
+    if (button) scrollToPart(button.dataset.scrollTo);
+  });
 
   // click on the backdrop (outside .modal__inner) closes
   dialog.addEventListener("click", (e) => {
@@ -48,30 +67,51 @@ export function initModal() {
   });
 
   dialog.addEventListener("close", () => {
+    unmountContent();
     document.dispatchEvent(new CustomEvent("modal:close"));
   });
 }
 
-function bodyHtml(entry) {
-  let html = paragraphs(entry.body);
-  if (entry.image && entry.image.src) {
-    html += `<img src="${new URL(entry.image.src, SITE_ROOT).href}" alt="${entry.image.alt || ""}" loading="lazy" />`;
-  }
-  return html;
+function unmountContent() {
+  if (unmount) unmount();
+  unmount = null;
 }
 
-export function openModal(qrId) {
-  const entry = qrContent[qrId];
-  if (!entry) {
-    console.warn(`No qr-content entry for "${qrId}"`);
+function scrollToPart(id) {
+  const target = document.getElementById(id);
+  const scroller = target && target.closest(".modal__text");
+  if (!scroller) return;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  scroller.scrollTo({
+    top: target.offsetTop, // .modal__text is the offsetParent
+    behavior: reduceMotion ? "auto" : "smooth",
+  });
+}
+
+export async function openModal(qrId) {
+  const slug = pageRoutes[qrId] ?? qrId;
+  const token = ++openToken;
+  let mod;
+  try {
+    mod = await loadContent(slug);
+  } catch (err) {
+    loaded.delete(slug); // let a later open retry
+    console.warn(`No content/${slug}.js for "${qrId}"`, err);
     return;
   }
+  if (token !== openToken) return;
 
-  eyebrowEl.textContent = entry.eyebrow || "QR code";
-  titleEl.textContent = entry.title || qrId;
-  bodyEl.innerHTML = bodyHtml(entry);
+  unmountContent();
+  contentEl.innerHTML =
+    typeof mod.default === "function"
+      ? mod.default({ titleId: "qr-modal-title" })
+      : renderModal(mod.default, {
+          titleId: "qr-modal-title",
+          fallbackTitle: qrId,
+        });
+  if (mod.mount) unmount = mod.mount(contentEl) || null;
 
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
   document.dispatchEvent(
     new CustomEvent("modal:open", { detail: { qrId } }),
   );
@@ -82,6 +122,7 @@ export function isModalOpen() {
 }
 
 export function closeModal() {
+  openToken++;
   if (dialog && dialog.open) dialog.close();
 }
 
@@ -89,11 +130,12 @@ export function closeModal() {
 // doesn't change the URL or the sky, so it fires no modal:* events.
 export function initAbout() {
   aboutDialog = document.getElementById("about-modal");
-  document.getElementById("about-modal-eyebrow").textContent =
-    aboutContent.eyebrow || "About";
-  document.getElementById("about-modal-title").textContent = aboutContent.title;
-  document.getElementById("about-modal-body").innerHTML =
-    bodyHtml(aboutContent);
+  loadContent("about").then((mod) => {
+    document.getElementById("about-modal-content").innerHTML = renderModal(
+      mod.default,
+      { titleId: "about-modal-title" },
+    );
+  });
 
   document
     .getElementById("about-open")

@@ -33,8 +33,8 @@ export function invert(routes) {
   );
 }
 
-// URL slug -> qr-content.js key. lens-l / lens-r have no panel id of
-// their own, so their content is keyed by slug.
+// URL slug -> QR id. lens-l / lens-r have no panel id of
+// their own, so they map to themselves.
 export const contentForSlug = {
   ...invert(pageRoutes),
   "lens-l": "lens-l",

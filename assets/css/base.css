@@ -15,6 +15,11 @@
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
   --radius: 12px;
   --maxw: 60rem;
+  /* the about icon's visible edge sits inside its 0.3rem button padding, so it
+     lands 1.3rem from the top and 1.45rem from the right; the zoom controls
+     and the modal reuse that inset so every edge gap matches */
+  --hud-icon-inset-y: 1.3rem;
+  --hud-icon-inset-x: 1.45rem;
   --font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
 }
@@ -170,8 +175,19 @@ dialog.modal {
   background: var(--bg-elevated);
   color: var(--fg);
   box-shadow: var(--shadow);
-  max-width: min(32rem, calc(100vw - 2rem));
+  /* full viewport height, inset by the same gap as the HUD icons */
+  margin: var(--hud-icon-inset-y) auto;
   width: 100%;
+  max-width: min(32rem, calc(100vw - 2 * var(--hud-icon-inset-x)));
+  height: calc(100vh - 2 * var(--hud-icon-inset-y));
+  height: calc(100dvh - 2 * var(--hud-icon-inset-y));
+  max-height: none;
+  overflow: hidden; /* .modal__inner scrolls so the close button stays put */
+  --modal-close: 0.875rem; /* the close button's × */
+  /* between the header and the stage, the stage and the rule, and the
+     rule and the title */
+  --modal-gap: 1.5rem;
+  --modal-text-gap: 0.5rem; /* a heading (title or part) to its paragraph */
 }
 
 dialog.modal::backdrop {
@@ -180,26 +196,138 @@ dialog.modal::backdrop {
 }
 
 .modal__inner {
+  height: 100%;
+  overflow-y: auto;
   padding: 1.5rem;
 }
 
 .modal__close {
   position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
+  /* same inset as .modal__inner's padding */
+  top: 1.5rem;
+  right: 1.5rem;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 1.4rem;
-  line-height: 1;
+  line-height: 0;
   cursor: pointer;
+  /* showModal() focuses this button on open; no ring around the × */
+  outline: none;
 }
 
-.modal__close:hover {
+/* round caps reach exactly to the viewBox edge, so the × fills the button
+   and its corners sit on the 1.5rem inset */
+.modal__close svg {
+  display: block;
+  width: var(--modal-close);
+  height: var(--modal-close);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.modal__close:hover,
+.modal__close:focus-visible {
   color: var(--fg);
+}
+
+/* the content fills .modal__inner's content box, so its children can
+   size as a share of it (longer copy still scrolls in .modal__inner) */
+.modal__inner > div {
+  height: 100%;
+}
+
+/* a fixed top and a scrolling text section: .modal__layout fills
+   .modal__inner, and only .modal__text scrolls, when its copy overflows */
+.modal__layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* the top 40% of .modal__inner's content box: the header, then the
+   interaction area filling the rest; the rule sits right below it */
+.modal__top {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  height: 40%;
+}
+
+/* the eyebrow and the close button as one row: the row is the ×'s
+   height, at the same top inset, and the eyebrow is centred in it, so
+   both share a centre line (the button itself stays in the page's HTML,
+   positioned over the row's right end) */
+.modal__header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: var(--modal-close);
+  padding-right: calc(var(--modal-close) + var(--modal-gap));
+}
+
+/* a line exactly the x's height, so one line of eyebrow fills the row and
+   a longer one wraps onto more rows below it */
+.modal__header .modal__eyebrow {
+  margin: 0;
+  line-height: var(--modal-close);
+}
+
+.modal__stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* the stage's canvas: the stage less --modal-gap above and below, sized
+   by the stage alone (absolutely placed, so the canvas's own pixel size
+   never feeds back into the layout). Each modal draws its own. */
+.modal__canvas {
+  position: absolute;
+  top: var(--modal-gap);
+  left: 0;
+  display: block;
+  width: 100%;
+  height: calc(100% - 2 * var(--modal-gap));
+  touch-action: manipulation;
+}
+
+.modal__part {
+  margin: 1.5rem 0 var(--modal-text-gap);
+  font-size: 1rem;
+  color: var(--fg);
+}
+
+.modal__rule {
+  flex: none;
+  margin: 0 0 var(--modal-gap);
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.modal__text {
+  position: relative; /* offsetParent for scrolling to a part */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* the scrollbar sits in .modal__inner's right padding, so the copy
+     keeps its width whether or not it scrolls */
+  margin-right: -1rem;
+  padding-right: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Safari: no scrollbar-width / scrollbar-color */
+.modal__text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal__text::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--border);
 }
 
 .modal__eyebrow {
@@ -211,7 +339,7 @@ dialog.modal::backdrop {
 }
 
 .modal__title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--modal-text-gap);
   font-size: 1.35rem;
 }
 
@@ -220,22 +348,25 @@ dialog.modal::backdrop {
   color: var(--fg-muted);
 }
 
+/* a heading sits --modal-text-gap above its first paragraph: the
+   paragraph's own top margin would otherwise widen the gap */
+.modal__title + .modal__body > :first-child,
+.modal__part + p {
+  margin-top: 0;
+}
+
 .modal__body img {
   margin-top: 1rem;
   border-radius: 8px;
 }
 
-/* bottom-sheet on small screens */
+/* full-width sheet on small screens, still inset like the HUD icons */
 @media (max-width: 640px) {
   dialog.modal {
-    max-width: 100vw;
-    width: 100vw;
-    max-height: 85vh;
-    overflow-y: auto;
-    margin: 0;
-    position: fixed;
-    inset: auto 0 0 0; /* pin to bottom */
-    border-radius: 16px 16px 0 0;
+    margin: var(--hud-icon-inset-y) var(--hud-icon-inset-x);
+    width: calc(100vw - 2 * var(--hud-icon-inset-x));
+    max-width: none;
+    border-radius: 16px;
     animation: sheet-up 0.22s ease;
   }
 

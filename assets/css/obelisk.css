@@ -114,8 +114,8 @@ body {
 
 .hud__controls {
   position: absolute;
-  right: 1.15rem;
-  bottom: 1.15rem;
+  right: var(--hud-icon-inset-x);
+  bottom: var(--hud-icon-inset-y);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -150,15 +150,10 @@ body {
 }
 
 @media (max-width: 640px) {
-  .hud__controls {
-    right: 0.9rem;
-    bottom: 0.9rem;
-  }
-
   .hud__hint {
     bottom: 1rem;
     left: 0.9rem;
-    right: 4.6rem; /* stop short of the control stack */
+    right: calc(var(--hud-icon-inset-x) + 3.25rem); /* stop short of the control stack */
     transform: none;
     max-width: none;
   }

@@ -4,10 +4,10 @@
    with a grid of QR finder markers.
 
    The 3 shaft faces are not identical:
-     Face 1 — three fixed-size panels: anatomy (250mm x 190mm) and
-               contrast (140mm x 220mm) side by side, above reliable
-               (400mm x 140mm). See layoutFace1() for the exact
-               geometry.
+     Face 1 — three SVG artwork panels: anatomy (250mm wide) and
+               contrast (140mm wide) side by side, above reliable
+               (400mm wide), each as tall as its artwork's proportions
+               make it. See layoutFace1() for the exact geometry.
      Face 2 — to the right of face 1 — a bespoke 490mm x 1270mm column
                of 6 QR codes of varying size, zig-zagging top to bottom:
                tiles, handdrawn, angle (a 3D perspective QR prism — see
@@ -83,13 +83,18 @@ const FACE_LAYOUTS = [
 const MM = 0.001;
 
 // face 1: anatomy and contrast side by side (bottom-aligned), reliable
-// centred beneath them; the whole group is centred on the face.
+// centred beneath them; the whole group is centred on the face. Each
+// panel is its SVG artwork, at the slot's width with the height its
+// viewBox's proportions give.
+const F1_ANATOMY_ART = "anatomy/assets/AnatomyQR.svg";
+const F1_CONTRAST_ART = "contrast/assets/ContrastQR.svg";
+const F1_RELIABILITY_ART = "reliable/assets/ReliabilityQR.svg";
 const F1_ANATOMY_W = 250 * MM;
-const F1_ANATOMY_H = 190 * MM;
+const F1_ANATOMY_H = F1_ANATOMY_W * (500.15 / 636.53);
 const F1_CONTRAST_W = 140 * MM;
-const F1_CONTRAST_H = 220 * MM;
+const F1_CONTRAST_H = F1_CONTRAST_W * (442.36 / 396.85);
 const F1_RELIABILITY_W = 400 * MM;
-const F1_RELIABILITY_H = 140 * MM;
+const F1_RELIABILITY_H = F1_RELIABILITY_W * (316.68 / 1388.98);
 const F1_GAP = 10 * MM; // between anatomy/contrast, and above reliable
 const F1_PAIR_W = F1_ANATOMY_W + F1_GAP + F1_CONTRAST_W;
 const F1_PAIR_H = Math.max(F1_ANATOMY_H, F1_CONTRAST_H);
@@ -156,9 +161,13 @@ const F2_CREDITS = {
   ],
 };
 const F2_PANELS = [
+  // handdrawn: the torn paper with its QR is the whole panel —
+  // qrossword.svg is qrosswordFramed.svg without its navy square, cropped
+  // to the paper (596 x 687). It fills the 200 x 220mm slot's height,
+  // centred in its width: 190.86 x 220mm.
   {
-    n: 1, x: 290, y: 250, w: 200, h: 220, // handdrawn
-    card: { radius: 0, qrBox: [11.6, 10.3, 177], qr: null },
+    n: 1, x: 294.57, y: 250, w: 190.86, h: 220, // handdrawn
+    art: { frame: "handdrawn/assets/qrossword.svg" },
   },
   {
     n: 2, x: 280, y: 615, w: 180, h: 150, // lens (lenticular: l / c / r)
@@ -306,14 +315,15 @@ function makeQrChip(qrDim, seed, framed) {
   );
   backing.position.z = 0.001;
 
-  const qr = new THREE.Mesh(
-    new THREE.PlaneGeometry(qrDim, qrDim),
-    new THREE.MeshBasicMaterial({
-      map: makeQrTexture(seed, framed),
-      transparent: true,
-    }),
-  );
+  const qrMat = new THREE.MeshBasicMaterial({ transparent: true });
+  const qr = new THREE.Mesh(new THREE.PlaneGeometry(qrDim, qrDim), qrMat);
   qr.position.z = 0.002;
+  qr.visible = false;
+  standInQr().then((tex) => {
+    qrMat.map = tex;
+    qrMat.needsUpdate = true;
+    qr.visible = true;
+  });
 
   const chipGroup = new THREE.Group();
   chipGroup.add(backing, qr);
@@ -359,16 +369,15 @@ function makePanel(qrId, w, h, color, align, seed, framed) {
    bottom-aligned, above reliable (400mm x 140mm). Each row is centred
    horizontally and the whole group is centred vertically on the face.
    ------------------------------------------------------------------- */
-function layoutFace1(faceIndex, qrTargets) {
+function layoutFace1(faceIndex, qrTargets, assetLoads) {
   const group = new THREE.Group();
 
   // n is the panel's fixed qrId index (0 = anatomy, 1 = contrast,
   // 2 = reliable) -> qrId face1-(n+1).
-  const addPanel = (n, w, h, x, y) => {
+  const addPanel = (n, w, h, x, y, frame) => {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
-    const color = PALETTE[(faceIndex * 2 + n) % PALETTE.length];
-    const seed = (faceIndex + 1) * 1000 + n * 37 + 5;
-    const panel = makePanel(qrId, w, h, color, 0, seed, n % 2 === 0);
+    const { panel, ready } = makeArtPanel(qrId, w, h, { frame });
+    assetLoads.push(ready);
     panel.position.set(x, y, 0.006);
     group.add(panel);
     qrTargets.push(panel);
@@ -380,9 +389,9 @@ function layoutFace1(faceIndex, qrTargets) {
   const anatomyX = left + F1_ANATOMY_W / 2;
   const contrastX = left + F1_ANATOMY_W + F1_GAP + F1_CONTRAST_W / 2;
 
-  addPanel(0, F1_ANATOMY_W, F1_ANATOMY_H, anatomyX, pairBottom + F1_ANATOMY_H / 2); // anatomy
-  addPanel(1, F1_CONTRAST_W, F1_CONTRAST_H, contrastX, pairBottom + F1_CONTRAST_H / 2); // contrast
-  addPanel(2, F1_RELIABILITY_W, F1_RELIABILITY_H, 0, bottom + F1_RELIABILITY_H / 2); // reliable
+  addPanel(0, F1_ANATOMY_W, F1_ANATOMY_H, anatomyX, pairBottom + F1_ANATOMY_H / 2, F1_ANATOMY_ART); // anatomy
+  addPanel(1, F1_CONTRAST_W, F1_CONTRAST_H, contrastX, pairBottom + F1_CONTRAST_H / 2, F1_CONTRAST_ART); // contrast
+  addPanel(2, F1_RELIABILITY_W, F1_RELIABILITY_H, 0, bottom + F1_RELIABILITY_H / 2, F1_RELIABILITY_ART); // reliable
 
   return group;
 }
@@ -449,14 +458,63 @@ function makeCredits(c) {
 const SITE_ROOT = new URL("../../../", import.meta.url);
 const textureLoader = new THREE.TextureLoader();
 
+// an SVG is drawn onto a canvas SVG_PX across (its long side): an SVG
+// with only a viewBox has no intrinsic size of its own, and a bigger
+// raster keeps the artwork sharp up close
+const SVG_PX = 2048;
+
+async function loadSvgCanvas(href) {
+  const res = await fetch(href);
+  if (!res.ok) throw new Error(`could not load ${href}`);
+  const text = await res.text();
+
+  // the viewBox's proportions (naturalWidth / naturalHeight are not
+  // reliable for a viewBox-only SVG)
+  const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  const aspect = vb.length === 4 && vb[2] > 0 && vb[3] > 0 ? vb[2] / vb[3] : 1;
+
+  const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(aspect >= 1 ? SVG_PX : SVG_PX * aspect);
+    canvas.height = Math.round(aspect >= 1 ? SVG_PX / aspect : SVG_PX);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function loadTexture(path, pixelated) {
-  return textureLoader.loadAsync(new URL(path, SITE_ROOT).href).then((tex) => {
+  const href = new URL(path, SITE_ROOT).href;
+  const load = /\.svg$/i.test(path)
+    ? loadSvgCanvas(href).then((canvas) => new THREE.CanvasTexture(canvas))
+    : textureLoader.loadAsync(href);
+  return load.then((tex) => {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     // keep the QR's modules crisp when seen up close
     if (pixelated) tex.magFilter = THREE.NearestFilter;
     return tex;
   });
+}
+
+// panels with no QR image of their own show this real QR instead of a
+// generated one. STAND_IN_QR_FRAC: share of its width that is modules
+// (926 of 1000px; the rest is its white margin).
+const STAND_IN_QR = "anatomy/assets/qr-anatomy.png";
+const STAND_IN_QR_FRAC = 926 / 1000;
+let standInQrLoad;
+function standInQr() {
+  standInQrLoad ??= loadTexture(STAND_IN_QR, true).catch((err) => {
+    console.error("obelisk: could not load stand-in QR", err);
+    return null;
+  });
+  return standInQrLoad;
 }
 
 function makeArtPanel(qrId, w, h, art) {
@@ -497,7 +555,7 @@ function makeArtPanel(qrId, w, h, art) {
 /* ---- white card panel (artboard frame + QR) --------------------------
    A w x h white card (square or rounded corners) with a QR at
    card.qrBox. The QR is the image at card.qr (loaded, like the artwork
-   panels) or, with none, a placeholder from makeQrTexture — sized so its
+   panels) or, with none, the stand-in QR (STAND_IN_QR) — sized so its
    modules, not its quiet zone, fill the box.
    ------------------------------------------------------------------- */
 function makeCardPanel(qrId, w, h, card, seed) {
@@ -530,8 +588,13 @@ function makeCardPanel(qrId, w, h, card, seed) {
       })
       .catch((err) => console.error("obelisk: could not load panel QR", err));
   } else {
-    qrMat.map = makeQrTexture(seed, false);
-    qr.scale.setScalar(qs / qrMat.map.userData.moduleFrac);
+    qr.scale.setScalar(qs / STAND_IN_QR_FRAC);
+    qr.visible = false;
+    ready = standInQr().then((tex) => {
+      qrMat.map = tex;
+      qrMat.needsUpdate = true;
+      qr.visible = true;
+    });
   }
 
   panel.userData.qrId = qrId;
@@ -767,7 +830,7 @@ function makeFace(faceIndex, qrTargets, assetLoads, updaters) {
 
   const layout = FACE_LAYOUTS[faceIndex];
   if (layout.type === "face1") {
-    group.add(layoutFace1(faceIndex, qrTargets));
+    group.add(layoutFace1(faceIndex, qrTargets, assetLoads));
   } else if (layout.type === "face2") {
     group.add(layoutFace2(faceIndex, qrTargets, assetLoads, updaters));
   }

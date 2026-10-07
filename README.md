@@ -17,8 +17,6 @@ assets/css/                base.css (shared) + obelisk.css (3D stage/HUD)
 assets/js/obelisk/
   obelisk.js                  builds the 3D obelisk + its faces/panels
   routes.js                   QR id -> URL slug map
-  qr-content.js                <- edit this to write the modal copy
-                               (aboutContent = the About modal)
   modal.js                     native <dialog> wrapper for the modal
   main.js                      scene bootstrap, camera, input, routing
 assets/img/about.svg        top-right icon that opens the About modal
@@ -62,7 +60,10 @@ PerspectiveQR-Generator, see `assets/js/obelisk/perspective-prism.js`).
 White, with a blue QR that only lines up from its scan point, 150mm
 straight out from the face. It can be tapped from any angle.
 
-All modal copy lives in [`assets/js/obelisk/qr-content.js`](assets/js/obelisk/qr-content.js).
+Each modal's copy is its own file, `content/<slug>.js` (the About modal is
+`content/about.js`), loaded the first time that modal opens. All of them are
+rendered by [`content/modal-layout.js`](content/modal-layout.js), so edit
+that to change the format of every modal at once.
 
 ## Run locally
 
