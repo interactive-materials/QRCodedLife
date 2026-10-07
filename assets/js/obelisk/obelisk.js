@@ -1,7 +1,8 @@
 /* ==========================================================================
    obelisk.js — builds the triangular obelisk in the style of the exhibition
    poster: a dark 3-sided shaft with a flat top, standing on a floor ruled
-   with a grid of QR finder markers.
+   with a grid of QR finder markers, its cells tiled in the 3 x 3 pattern
+   made in the tiles modal (see floor-pattern.js).
 
    The 3 shaft faces are not identical:
      Face 1 — three SVG artwork panels: anatomy (250mm wide) and
@@ -37,6 +38,8 @@ import {
   buildPerspectivePrism,
   PRISM,
 } from "./perspective-prism.js";
+import { PATTERN_SIZE, getPattern, onPatternChange } from "./floor-pattern.js";
+import { loadQrossword, drawQrossword, getFound, onFoundChange } from "./qrossword.js";
 
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
@@ -48,7 +51,8 @@ const FLOOR_FADE = 15; // distance from the shaft where the fade starts (m)
 
 // floor grid: square cells whose lines are dotted with QR finder markers
 // (ring 1, gap 1, centre 3 modules), like the dotted lines in tile.svg
-const FLOOR_CELL = 0.3; // grid cell side (m)
+const FLOOR_CELL = 0.3; // grid cell side (m); one tile of the pattern
+const FLOOR_CELL_PX = 680; // a cell's side in the floor texture (px)
 const FLOOR_MARKERS = 20; // markers per cell side; each is half its pitch
 const FLOOR_COLOR = "#000"; // the markers
 const FLOOR_BG = "#FFF"; // the floor between them
@@ -126,7 +130,9 @@ const F2_TILES = [[-1, -1], [1, -1], [-2, 0], [0, 0], [-1, 1], [1, 1], [-2, 2]];
 // with a QR at qrBox [x, y, size] (mm, the modules' extent): the image at
 // `qr` (qrFrac: share of its width that is modules, the rest being its
 // white margin), or a placeholder QR when there is none yet — or, with
-// `lenticular`, one QR per viewing angle (see makeLenticular). prism: the
+// `lenticular`, one QR per viewing angle (see makeLenticular). qrossword:
+// the panel is QROSSWORD, showing the words found in its modal (see
+// makeQrosswordPanel). prism: the
 // panel is the 3D perspective QR prism (perspective-prism.js) instead of a
 // flat card — its footprint is PRISM.W x PRISM.L, i.e. 210mm x 160mm.
 const F2_CAPTION_W = 100 * MM;
@@ -161,13 +167,12 @@ const F2_CREDITS = {
   ],
 };
 const F2_PANELS = [
-  // handdrawn: the torn paper with its QR is the whole panel —
-  // qrossword.svg is qrosswordFramed.svg without its navy square, cropped
-  // to the paper (596 x 687). It fills the 200 x 220mm slot's height,
-  // centred in its width: 190.86 x 220mm.
+  // handdrawn: QROSSWORD, the square QR as the modal draws it, with the
+  // boxes of the words found there. It fills the 200 x 220mm slot's
+  // width, centred in its height: 200 x 200mm.
   {
-    n: 1, x: 294.57, y: 250, w: 190.86, h: 220, // handdrawn
-    art: { frame: "handdrawn/assets/qrossword.svg" },
+    n: 1, x: 290, y: 260, w: 200, h: 200, // handdrawn
+    qrossword: true,
   },
   {
     n: 2, x: 280, y: 615, w: 180, h: 150, // lens (lenticular: l / c / r)
@@ -463,7 +468,14 @@ const textureLoader = new THREE.TextureLoader();
 // raster keeps the artwork sharp up close
 const SVG_PX = 2048;
 
-async function loadSvgCanvas(href) {
+// each SVG is read once, however many textures use it
+const svgCanvasLoads = new Map();
+function loadSvgCanvas(href) {
+  if (!svgCanvasLoads.has(href)) svgCanvasLoads.set(href, readSvgCanvas(href));
+  return svgCanvasLoads.get(href);
+}
+
+async function readSvgCanvas(href) {
   const res = await fetch(href);
   if (!res.ok) throw new Error(`could not load ${href}`);
   const text = await res.text();
@@ -549,6 +561,40 @@ function makeArtPanel(qrId, w, h, art) {
     .catch((err) => console.error("obelisk: could not load panel art", err));
 
   panel.userData = { qrId };
+  return { panel, ready };
+}
+
+/* ---- QROSSWORD panel --------------------------------------------------
+   A w x w square drawing qrossword.js's QR on a canvas texture, with the
+   boxes of the words found so far, redrawn whenever one is found (in the
+   handdrawn modal). Unlit, like the artwork panels.
+   ------------------------------------------------------------------- */
+const QROSSWORD_PX = 2048; // the texture's side
+
+function makeQrosswordPanel(qrId, w) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = QROSSWORD_PX;
+  const ctx = canvas.getContext("2d");
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+
+  const material = new THREE.MeshBasicMaterial({ map: tex });
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, w), material);
+  panel.visible = false;
+  panel.userData = { qrId };
+
+  const ready = loadQrossword()
+    .then((qrossword) => {
+      const draw = (found) => {
+        drawQrossword(ctx, qrossword, 0, 0, QROSSWORD_PX, found);
+        tex.needsUpdate = true;
+      };
+      draw(getFound());
+      onFoundChange(draw);
+      panel.visible = true;
+    })
+    .catch((err) => console.error("obelisk: could not load QROSSWORD", err));
   return { panel, ready };
 }
 
@@ -767,7 +813,7 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
   }
 
   // the rectangular panels
-  for (const { n, x, y, w, h, caption, prism, art, card } of F2_PANELS) {
+  for (const { n, x, y, w, h, caption, prism, art, card, qrossword } of F2_PANELS) {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
     let panel;
     if (card) {
@@ -781,6 +827,11 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
           return false;
         });
       }
+      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+    } else if (qrossword) {
+      const built = makeQrosswordPanel(qrId, w * MM);
+      panel = built.panel;
+      assetLoads.push(built.ready);
       panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
     } else if (art) {
       const built = makeArtPanel(qrId, w * MM, h * MM, art);
@@ -855,18 +906,26 @@ function triPrism(radiusTop, radiusBottom, height, material) {
 }
 
 /* ---- floor grid -------------------------------------------------- */
-// one grid cell, to repeat across the floor: a line of finder markers
-// along its top and left edges (a marker sits on the corner, where the
-// lines cross)
-function makeFloorGridTexture() {
-  const size = 1024;
+// a PATTERN_SIZE x PATTERN_SIZE block of grid cells, to repeat across the
+// floor: the tile art (F2_TILE_ART) in each cell the pattern fills, then
+// lines of finder markers along every cell's edges over the lot (a
+// marker sits on each corner, where the lines cross). Redrawn whenever
+// the pattern changes. Returns the texture and a promise for the tile
+// art, after which the floor needs a re-render.
+function makeFloorTexture() {
+  const cell = FLOOR_CELL_PX;
+  const size = cell * PATTERN_SIZE;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = FLOOR_BG;
-  ctx.fillRect(0, 0, size, size);
 
-  const pitch = size / FLOOR_MARKERS;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.setScalar(FLOOR_SIZE / (FLOOR_CELL * PATTERN_SIZE));
+  tex.anisotropy = 8; // the floor is mostly seen at a glancing angle
+
+  const pitch = cell / FLOOR_MARKERS;
   const m = pitch / 2 / 7; // module: the marker is 7 modules across
   const marker = (cx, cy) => {
     ctx.fillStyle = FLOOR_COLOR;
@@ -876,30 +935,45 @@ function makeFloorGridTexture() {
     ctx.fillStyle = FLOOR_COLOR;
     ctx.fillRect(cx - 1.5 * m, cy - 1.5 * m, 3 * m, 3 * m);
   };
-  // markers on an edge are cut in half; draw each on both opposite
-  // edges so the halves meet when the texture repeats
-  for (let k = 0; k <= FLOOR_MARKERS; k++) {
-    for (const edge of [0, size]) {
-      marker(k * pitch, edge);
-      marker(edge, k * pitch);
+
+  let tileArt = null; // a canvas, once loaded
+  function draw(pattern) {
+    ctx.fillStyle = FLOOR_BG;
+    ctx.fillRect(0, 0, size, size);
+    if (tileArt) {
+      pattern.forEach((filled, i) => {
+        if (!filled) return;
+        const col = i % PATTERN_SIZE;
+        const row = Math.floor(i / PATTERN_SIZE);
+        ctx.drawImage(tileArt, col * cell, row * cell, cell, cell);
+      });
     }
+    // markers on the block's edge are cut in half; the lines at 0 and
+    // size both draw them, so the halves meet when the texture repeats
+    for (let line = 0; line <= PATTERN_SIZE; line++) {
+      for (let k = 0; k <= FLOOR_MARKERS * PATTERN_SIZE; k++) {
+        marker(k * pitch, line * cell);
+        marker(line * cell, k * pitch);
+      }
+    }
+    tex.needsUpdate = true;
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.setScalar(FLOOR_SIZE / FLOOR_CELL);
-  tex.anisotropy = 8; // the floor is mostly seen at a glancing angle
-  return tex;
+  draw(getPattern());
+  onPatternChange(draw);
+  const tileArtReady = loadSvgCanvas(new URL(F2_TILE_ART, SITE_ROOT).href)
+    .then((art) => {
+      tileArt = art;
+      draw(getPattern());
+    })
+    .catch((err) => console.error("obelisk: could not load the floor's tile art", err));
+  return { tex, tileArtReady };
 }
 
 // the grid, its alpha falling from 1 at FLOOR_FADE to 0 at the disc's
 // edge, so the floor melts into the sky's horizon whatever its colours
-function makeFloorMaterial() {
-  const material = new THREE.MeshBasicMaterial({
-    map: makeFloorGridTexture(),
-    transparent: true,
-  });
+function makeFloorMaterial(map) {
+  const material = new THREE.MeshBasicMaterial({ map, transparent: true });
   material.onBeforeCompile = (shader) => {
     shader.uniforms.floorFade = {
       value: new THREE.Vector2(FLOOR_FADE, FLOOR_SIZE / 2),
@@ -984,9 +1058,11 @@ export function buildObelisk() {
   // floor disc ruled with the finder-marker grid (a line crossing sits
   // under the shaft), fading out toward the horizon; ignored by picking
   // and zoom so zooming at it never drags the orbit target down to it
+  const floorTexture = makeFloorTexture();
+  assetLoads.push(floorTexture.tileArtReady);
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(FLOOR_SIZE / 2, 96),
-    makeFloorMaterial(),
+    makeFloorMaterial(floorTexture.tex),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.renderOrder = -2; // before the contact shadow, which lies on it

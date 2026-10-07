@@ -10,22 +10,26 @@
    modal closes or changes. The close button stays outside, in each page's
    HTML.
 
-   The canvas draws the QOLORFUL QR code with four vertical sliders to its
-   right, one per colour. Each slider's thumb is its colour; at the top
-   that colour shows as it is, and dragging down fades it to the black or
-   white it stands for.
+   The canvas draws the QOLORFUL QR code with a vertical slider to its
+   right: at the top everything shows in colour, and dragging down fades
+   the whole site — the obelisk, the HUD, this modal and its QR — to
+   black and white, with a CSS grayscale() filter (see
+   assets/js/obelisk/greyscale.js). The level stays where it's left: after
+   the modal closes, on other pages and over a reload.
 
    The QR is drawn module by module from the grid in QOLORful.svg (see
    readColourQr() below and assets/js/obelisk/qr-code.js).
    ========================================================================== */
 
 import { QrCode } from "../assets/js/obelisk/qr-code.js";
+import { getGreyscale, setGreyscale } from "../assets/js/obelisk/greyscale.js";
 
 const QR_SRC = new URL("../color/assets/QOLORful.svg", import.meta.url).href;
 
 const copy = {
   title: "QOLORFUL",
   stageLabel: "The QOLORFUL QR code, in colour",
+  sliderLabel: "From colour to black and white",
   body: [
     "QR code is scannable and processed by computer, different with how we process images with our eyes",
     "QOLORFUL showed this difference by turning QR code into a colourful patchwork that appear differently from usual two-color QR code",
@@ -39,19 +43,11 @@ const copy = {
    and yellow for white (DARK_COLOURS). In black and white it is a negative
    QR — its position markers are white rings on black — framed by a black
    ring (the magenta / blue ring just inside the white margin). Each
-   module keeps its colour in module.colour.
-
-   COLOURS are the four, in slider order (left to right), with their names
-   for screen readers.
+   module is drawn in its own colour — set from the colour itself, not
+   module.dark: QrCode counts the whole quiet zone light, but here part of
+   it is the black ring.
    ------------------------------------------------------------------------ */
 const DARK_COLOURS = ["#ff00c8", "#0082ff"];
-const COLOURS = [
-  { colour: "#ff00c8", name: "Magenta" },
-  { colour: "#0082ff", name: "Blue" },
-  { colour: "#ffa0ff", name: "Pink" },
-  { colour: "#ffff00", name: "Yellow" },
-];
-const bwOf = (colour) => (DARK_COLOURS.includes(colour) ? "#000000" : "#ffffff");
 
 async function readColourQr(url) {
   const res = await fetch(url);
@@ -92,44 +88,25 @@ async function readColourQr(url) {
     Array.from({ length: n }, (_, c) => isDark(r + quiet, c + quiet)),
   );
   const qr = new QrCode(dark, quiet);
-  for (const m of qr.modules) m.colour = colours[m.row + quiet][m.col + quiet];
+  for (const m of qr.modules) {
+    const colour = colours[m.row + quiet][m.col + quiet];
+    m.style = { dark: colour, light: colour };
+  }
   return qr;
 }
 
 // read once, when this module loads; without it the canvas shows only
-// the sliders
+// the slider
 const qrCode = await readColourQr(QR_SRC).catch((err) => {
   console.warn("color: could not read the QR code", err);
   return null;
 });
 
-// a colour at slider value t (0..1): itself at 0, its black or white at 1
-const colourAt = (colour, t) => mix(colour, bwOf(colour), t);
-
-// every module's colour, from its colour's slider (values: colour -> t).
-// Set from the colour itself, not module.dark: QrCode counts the whole
-// quiet zone light, but here part of it is the black ring. The white
-// margin has no slider and stays white.
-function recolour(qr, values) {
-  for (const m of qr.modules) {
-    const c = colourAt(m.colour, values[m.colour] ?? 0);
-    m.style = { dark: c, light: c };
-  }
-}
-
-// "#rrggbb" a -> b at t
-function mix(a, b, t) {
-  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
-  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
-  return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(",")})`;
-}
-
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
-   range inputs inside the <canvas> are its fallback content: never drawn,
-   but focusable (arrow keys move them) and read by screen readers; the
-   canvas draws them as the sliders, and dragging a drawn slider moves
-   its input.
+   range input inside the <canvas> is its fallback content: never drawn,
+   but focusable (arrow keys move it) and read by screen readers; the
+   canvas draws it as the slider, and dragging the drawn slider moves it.
    ------------------------------------------------------------------------ */
 export default function render({ titleId }) {
   return `
@@ -139,12 +116,9 @@ export default function render({ titleId }) {
         <div class="modal__stage">
           <canvas class="modal__canvas">
             <p>${copy.stageLabel}</p>
-            ${COLOURS.map(
-              ({ colour, name }) => `
-            <label>${name} to ${bwOf(colour) === "#000000" ? "black" : "white"}
-              <input type="range" min="0" max="100" value="0" data-colour="${colour}" />
-            </label>`,
-            ).join("")}
+            <label>${copy.sliderLabel}
+              <input type="range" min="0" max="100" value="${Math.round(getGreyscale() * 100)}" data-slider />
+            </label>
           </canvas>
         </div>
       </div>
@@ -160,24 +134,25 @@ export default function render({ titleId }) {
 }
 
 /* ---- canvas -------------------------------------------------------------
-   Layout, in CSS px: the QR (a square, as big as fits) with the four
-   sliders SLIDERS_GAP to its right, the group centred in the canvas. Each
-   slider is a vertical track SLIDER_LENGTH of the QR's height, centred on
-   it, in a column SLIDER_W wide. A thumb is drawn in its colour's current
-   shade.
+   Layout, in CSS px. The canvas splits into two sections: the QR's, the
+   left QR_SECTION of its width, and the slider's, the rest. The QR is a
+   square centred in its section, as big as fits with QR_MARGIN all
+   round — as in handdrawn.js, so the two QRs are the
+   same size in the same place; the slider is centred in its section. The slider is a vertical track SLIDER_LENGTH of the QR's
+   height, centred on it; its value runs down: colour at the top, black
+   and white at the bottom.
    ------------------------------------------------------------------------ */
-const SLIDERS_GAP = 1; // between the QR and the sliders (rem)
-const SLIDER_LENGTH = 0.6; // a track's length, as a share of the QR's height
-const SLIDER_W = 1.25; // one slider's column (rem)
-const SLIDER_SPACING = 0.5; // between slider columns (rem)
+const QR_SECTION = 0.6; // the QR's section, as a share of the canvas's width
+const QR_MARGIN = 0.75; // round the QR, inside its section (rem)
+const SLIDER_LENGTH = 0.6; // the track's length, as a share of the QR's height
 const THUMB_R = 0.5; // thumb radius (rem)
 const TRACK_W = 4; // px
 const THUMB_STROKE = 1.5; // px
 
 export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
-  const inputs = canvas ? [...canvas.querySelectorAll("input[data-colour]")] : [];
-  if (!canvas || !inputs.length) return null;
+  const input = canvas && canvas.querySelector("input[data-slider]");
+  if (!canvas || !input) return null;
   const ctx = canvas.getContext("2d");
   const qrLayer = document.createElement("canvas");
   const qrCtx = qrLayer.getContext("2d");
@@ -186,33 +161,29 @@ export function mount(root) {
   let height = 0;
   let dpr = 1;
   let raf = 0;
-  let hover = -1; // slider under the pointer
-  let focus = -1; // slider whose input has keyboard focus
-  let dragging = -1; // slider being dragged
-  let tracks = []; // [{ x, y0, y1 }] per slider, CSS px; y0 = value 0 (top)
-  const valueOf = (i) => Number(inputs[i].value) / 100;
-  const values = () =>
-    Object.fromEntries(inputs.map((input, i) => [input.dataset.colour, valueOf(i)]));
-  if (qrCode) recolour(qrCode, values());
+  let hover = false; // pointer over the slider
+  let focus = false; // the range input has keyboard focus
+  let dragging = false;
+  let track = null; // { x, y0, y1, w }, CSS px; y0 = value 0 (top)
+  const value = () => Number(input.value) / 100;
 
   const css = (name) => getComputedStyle(canvas).getPropertyValue(name).trim();
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
 
   function layout() {
     const r = rem();
-    const colW = SLIDER_W * r;
-    const spacing = SLIDER_SPACING * r;
-    const slidersW = inputs.length * colW + (inputs.length - 1) * spacing;
-    const gap = SLIDERS_GAP * r;
-    const size = Math.max(0, Math.min(height, width - gap - slidersW));
-    const x = (width - (size + gap + slidersW)) / 2;
+    const colW = 2 * THUMB_R * r;
+    const section = width * QR_SECTION;
+    const size = Math.max(0, Math.min(height, section) - 2 * QR_MARGIN * r);
+    const x = (section - size) / 2;
     const y = (height - size) / 2;
     const length = size * SLIDER_LENGTH;
-    tracks = inputs.map((_, i) => ({
-      x: x + size + gap + i * (colW + spacing) + colW / 2,
+    track = {
+      x: (section + width) / 2,
       y0: y + (size - length) / 2,
       y1: y + (size + length) / 2,
-    }));
+      w: colW,
+    };
     return { qr: { x, y, size }, r };
   }
 
@@ -229,42 +200,38 @@ export function mount(root) {
     }
 
     const fg = css("--fg");
-    const border = css("--border");
-    tracks.forEach((t, i) => {
-      const v = valueOf(i);
-      const thumbY = t.y0 + (t.y1 - t.y0) * v;
+    const thumbY = track.y0 + (track.y1 - track.y0) * value();
+    const thumbR = THUMB_R * r;
 
-      // track: filled from the top down to the thumb
-      ctx.lineCap = "round";
-      ctx.lineWidth = TRACK_W;
-      ctx.beginPath();
-      ctx.moveTo(t.x, t.y0);
-      ctx.lineTo(t.x, t.y1);
-      ctx.strokeStyle = border;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(t.x, t.y0);
-      ctx.lineTo(t.x, thumbY);
-      ctx.strokeStyle = fg;
-      ctx.stroke();
+    // track: filled from the top down to the thumb
+    ctx.lineCap = "round";
+    ctx.lineWidth = TRACK_W;
+    ctx.beginPath();
+    ctx.moveTo(track.x, track.y0);
+    ctx.lineTo(track.x, track.y1);
+    ctx.strokeStyle = css("--border");
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(track.x, track.y0);
+    ctx.lineTo(track.x, thumbY);
+    ctx.strokeStyle = fg;
+    ctx.stroke();
 
-      // thumb, in its colour's current shade
-      const big = hover === i || dragging === i;
+    // thumb
+    ctx.beginPath();
+    ctx.arc(track.x, thumbY, (hover || dragging ? 1.15 : 1) * thumbR, 0, Math.PI * 2);
+    ctx.fillStyle = css("--bg-elevated");
+    ctx.fill();
+    ctx.lineWidth = THUMB_STROKE;
+    ctx.strokeStyle = fg;
+    ctx.stroke();
+    if (focus) {
       ctx.beginPath();
-      ctx.arc(t.x, thumbY, (big ? 1.15 : 1) * THUMB_R * r, 0, Math.PI * 2);
-      ctx.fillStyle = colourAt(inputs[i].dataset.colour, v);
-      ctx.fill();
-      ctx.lineWidth = THUMB_STROKE;
-      ctx.strokeStyle = fg;
+      ctx.arc(track.x, thumbY, thumbR + 4, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = css("--accent");
       ctx.stroke();
-      if (focus === i) {
-        ctx.beginPath();
-        ctx.arc(t.x, thumbY, THUMB_R * r + 4, 0, Math.PI * 2);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = css("--accent");
-        ctx.stroke();
-      }
-    });
+    }
   }
 
   function frame() {
@@ -293,82 +260,77 @@ export function mount(root) {
   });
   resizer.observe(canvas);
 
-  // ---- the sliders: each range input is the value; its drawn slider sets it
+  // ---- the slider: the range input is the value; the drawn slider sets it
   const local = (e) => {
     const rect = canvas.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
-  // the slider whose column is under the pointer, or -1
-  const sliderAt = (e) => {
+  // the pointer is over the slider's column, from end to end of the track
+  const onSlider = (e) => {
+    if (!track) return false;
     const [x, y] = local(e);
-    const r = rem();
-    const reachX = Math.max(SLIDER_W * r, THUMB_R * r * 2) / 2 + (SLIDER_SPACING * r) / 2;
-    const reachY = THUMB_R * r;
-    return tracks.findIndex(
-      (t) =>
-        Math.abs(x - t.x) <= reachX &&
-        y >= Math.min(t.y0, t.y1) - reachY &&
-        y <= Math.max(t.y0, t.y1) + reachY,
+    const reach = THUMB_R * rem();
+    return (
+      Math.abs(x - track.x) <= Math.max(track.w / 2, reach) &&
+      y >= track.y0 - reach &&
+      y <= track.y1 + reach
     );
   };
-  const setFrom = (i, e) => {
+  const setFrom = (e) => {
     const [, y] = local(e);
-    const t = tracks[i];
-    const v = Math.min(Math.max((y - t.y0) / (t.y1 - t.y0), 0), 1);
-    inputs[i].value = String(Math.round(v * 100));
-    inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+    const v = Math.min(Math.max((y - track.y0) / (track.y1 - track.y0), 0), 1);
+    input.value = String(Math.round(v * 100));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
   const onInput = () => {
-    if (qrCode) recolour(qrCode, values());
+    setGreyscale(value());
     invalidate();
   };
   const onPointerDown = (e) => {
-    const i = sliderAt(e);
-    if (i < 0) return;
-    dragging = i;
+    if (!onSlider(e)) return;
+    dragging = true;
     canvas.setPointerCapture(e.pointerId);
     canvas.style.cursor = "grabbing";
-    setFrom(i, e);
+    setFrom(e);
   };
   const onPointerMove = (e) => {
-    if (dragging >= 0) return setFrom(dragging, e);
-    const i = sliderAt(e);
-    if (i === hover) return;
-    hover = i;
-    canvas.style.cursor = i >= 0 ? "pointer" : "";
+    if (dragging) return setFrom(e);
+    const over = onSlider(e);
+    if (over === hover) return;
+    hover = over;
+    canvas.style.cursor = over ? "pointer" : "";
     invalidate();
   };
   const onPointerUp = (e) => {
-    if (dragging < 0) return;
-    dragging = -1;
+    if (!dragging) return;
+    dragging = false;
     canvas.releasePointerCapture(e.pointerId);
-    hover = sliderAt(e);
-    canvas.style.cursor = hover >= 0 ? "pointer" : "";
+    hover = onSlider(e);
+    canvas.style.cursor = hover ? "pointer" : "";
     invalidate();
   };
   const onPointerLeave = () => {
-    if (dragging >= 0 || hover < 0) return;
-    hover = -1;
+    if (dragging || !hover) return;
+    hover = false;
     canvas.style.cursor = "";
     invalidate();
   };
   const onFocus = (e) => {
-    focus = e.type === "focusin" ? inputs.indexOf(e.target) : -1;
+    focus = e.type === "focusin" && e.target === input;
     invalidate();
   };
-  // the sliders run downwards, so the down arrow moves the thumb down
+  // the slider runs downwards, so the down arrow moves the thumb down
   // (raises the value) — a range input's own arrows run the other way
   const onKeyDown = (e) => {
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
-    const input = e.target;
-    if (!step || !inputs.includes(input)) return;
+    if (!step || e.target !== input) return;
     e.preventDefault();
     input.value = String(Math.min(Math.max(Number(input.value) + step, 0), 100));
     input.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
-  inputs.forEach((input) => input.addEventListener("input", onInput));
+  input.addEventListener("input", onInput);
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
@@ -385,7 +347,7 @@ export function mount(root) {
     cancelAnimationFrame(raf);
     resizer.disconnect();
     scheme.removeEventListener("change", invalidate);
-    inputs.forEach((input) => input.removeEventListener("input", onInput));
+    input.removeEventListener("input", onInput);
     canvas.removeEventListener("pointerdown", onPointerDown);
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerup", onPointerUp);

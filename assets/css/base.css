@@ -48,6 +48,14 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* everything is sized in rem, so this scales the whole site down on
+   phones: 87.5% of the browser's default (16px -> 14px) */
+@media (max-width: 640px) {
+  html {
+    font-size: 87.5%;
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -183,6 +191,7 @@ dialog.modal {
   height: calc(100dvh - 2 * var(--hud-icon-inset-y));
   max-height: none;
   overflow: hidden; /* .modal__inner scrolls so the close button stays put */
+  --modal-pad: 1.5rem; /* .modal__inner's padding */
   --modal-close: 0.875rem; /* the close button's × */
   /* between the header and the stage, the stage and the rule, and the
      rule and the title */
@@ -190,22 +199,78 @@ dialog.modal {
   --modal-text-gap: 0.5rem; /* a heading (title or part) to its paragraph */
 }
 
+/* the QOLORFUL modal's slider greys the whole site:
+   assets/js/obelisk/greyscale.js sets --greyscale (0..1) on <html>, with
+   .is-greyscale while it's above 0 (any filter, even grayscale(0),
+   changes how fixed children are placed). The dialogs are in the top
+   layer, outside <html>'s painting, so they take the filter themselves. */
+html.is-greyscale :is(.stage, .hud, dialog.modal) {
+  filter: grayscale(var(--greyscale));
+}
+
 dialog.modal::backdrop {
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
 }
 
+/* opening slides the modal up from below the screen and fades its
+   backdrop in; closing runs it back down. Closed, the modal waits just
+   past the bottom edge; @starting-style starts an opening from there, and
+   transitioning display and overlay keeps a closing modal on screen, in
+   the top layer, until it's gone. Browsers without these skip the
+   animation. Opening eases out, closing eases in. */
+dialog.modal,
+dialog.modal::backdrop {
+  transition-duration: 0.28s;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+
+dialog.modal {
+  transform: translateY(calc(100% + var(--hud-icon-inset-y)));
+  transition-property: transform, display, overlay;
+  transition-behavior: allow-discrete;
+}
+
+dialog.modal::backdrop {
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-behavior: allow-discrete;
+}
+
+dialog.modal[open] {
+  transform: none;
+}
+
+dialog.modal[open]::backdrop {
+  opacity: 1;
+}
+
+dialog.modal[open],
+dialog.modal[open]::backdrop {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+@starting-style {
+  dialog.modal[open] {
+    transform: translateY(calc(100% + var(--hud-icon-inset-y)));
+  }
+
+  dialog.modal[open]::backdrop {
+    opacity: 0;
+  }
+}
+
 .modal__inner {
   height: 100%;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: var(--modal-pad);
 }
 
 .modal__close {
   position: absolute;
   /* same inset as .modal__inner's padding */
-  top: 1.5rem;
-  right: 1.5rem;
+  top: var(--modal-pad);
+  right: var(--modal-pad);
   padding: 0;
   border: none;
   background: transparent;
@@ -367,13 +432,6 @@ dialog.modal::backdrop {
     width: calc(100vw - 2 * var(--hud-icon-inset-x));
     max-width: none;
     border-radius: 16px;
-    animation: sheet-up 0.22s ease;
-  }
-
-  @keyframes sheet-up {
-    from {
-      transform: translateY(100%);
-    }
   }
 }
 

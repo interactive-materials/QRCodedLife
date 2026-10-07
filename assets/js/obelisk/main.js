@@ -20,6 +20,12 @@ import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
 import { buildSky, setSky, isEasing, skyForSlug, animated as skyAnimated } from "./background.js";
 import { initModal, initAbout, openModal, closeModal, isModalOpen } from "./modal.js";
 import { pageRoutes, contentForSlug } from "./routes.js";
+import { applyGreyscale } from "./greyscale.js";
+import { onPatternChange } from "./floor-pattern.js";
+import { onFoundChange } from "./qrossword.js";
+
+// the black-and-white level the QOLORFUL slider last left the site at
+applyGreyscale();
 
 const canvas = document.getElementById("scene");
 const statusEl = document.getElementById("status");
@@ -144,6 +150,10 @@ function init() {
   // text is redrawn once its web font arrives, and image panels appear
   // once loaded
   obelisk.assetsReady.then(requestRender);
+  // the floor and the QROSSWORD panel redraw themselves when the tiles
+  // and handdrawn modals change them
+  onPatternChange(requestRender);
+  onFoundChange(requestRender);
 
   initModal();
   initAbout();
