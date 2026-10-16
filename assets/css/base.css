@@ -385,6 +385,20 @@ dialog.modal[open]::backdrop {
   scrollbar-color: var(--border) transparent;
 }
 
+/* dark theme: all the copy pure white, muted text included (the close
+   button sits outside .modal__layout, so it keeps its own colours) */
+@media (prefers-color-scheme: dark) {
+  .modal__layout {
+    --fg: #fff;
+    --fg-muted: #fff;
+  }
+}
+
+/* text right below the header (no interactive top): --modal-gap apart */
+.modal__header + .modal__text {
+  margin-top: var(--modal-gap);
+}
+
 /* Safari: no scrollbar-width / scrollbar-color */
 .modal__text::-webkit-scrollbar {
   width: 6px;
@@ -423,6 +437,25 @@ dialog.modal[open]::backdrop {
 .modal__body img {
   margin-top: 1rem;
   border-radius: 8px;
+}
+
+/* a picture in the copy with its caption, both centred */
+.modal__figure {
+  margin: 1.25rem 0;
+  text-align: center;
+}
+
+.modal__figure img {
+  display: block;
+  width: min(60%, 16rem);
+  height: auto;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.modal__figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
 }
 
 /* full-width sheet on small screens, still inset like the HUD icons */
