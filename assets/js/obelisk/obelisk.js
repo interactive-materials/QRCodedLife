@@ -1095,11 +1095,13 @@ export function buildObelisk() {
 /* ---- hover feedback ------------------------------------------------- */
 export function setPanelHover(panel, hovered) {
   if (!panel) return;
-  // every lit part glows (a card, or each face of the perspective prism)
-  panel.traverse((obj) => {
-    if (obj.material && obj.material.emissive)
-      obj.material.emissiveIntensity = hovered ? 0.4 : 0;
-  });
+  // every lit part glows (a card's faces); the perspective prism glows
+  // all the time, so it only enlarges
+  if (!panel.userData.steadyGlow)
+    panel.traverse((obj) => {
+      if (obj.material && obj.material.emissive)
+        obj.material.emissiveIntensity = hovered ? 0.4 : 0;
+    });
   panel.scale.setScalar(hovered ? 1.03 : 1);
 }
 

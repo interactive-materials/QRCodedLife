@@ -6,7 +6,8 @@
    opens that modal on load, so a scanned QR lands here.
 
    Controls: one-finger / left-drag orbits round the obelisk's vertical
-   axis only — the camera stays level, never tilting up or down.
+   centre line — always that line, even when zoomed in on a panel — and
+   the camera stays level, never tilting up or down.
    Right-drag (or shift-drag) and a two-finger touch drag pan the view
    up and down only, never side to side.
    The mouse wheel, pinch (touch) or trackpad pinch zooms in toward the
@@ -59,6 +60,11 @@ const CLOSE_FOV = 70;
 const FOV_RANGE = [0.15, 0.8];
 // the orbit target stays within this radius (m) of the obelisk's axis
 const PAN_RADIUS = 0.6;
+// orbit drag: radians per canvas height dragged (as OrbitControls), and
+// the share of the outstanding turn applied each frame (its damping)
+const ROTATE_SPEED = 0.9;
+const ROTATE_DAMPING = 0.08;
+const UP = new THREE.Vector3(0, 1, 0);
 
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
@@ -67,6 +73,12 @@ const down = { x: 0, y: 0, t: 0, valid: false, tap: false };
 
 // the mouse/pen pointer doing a right- or shift-drag pan: { id, y }
 let dragPan = null;
+
+// the pointer doing a left-drag / one-finger orbit: { id, x }
+let dragRotate = null;
+// turn (rad) still to be applied round the obelisk's axis, eased out
+// over the following frames
+let pendingSpin = 0;
 
 // active touch pointers (id -> {x, y}), for two-finger scroll + pinch
 const touches = new Map();
@@ -114,14 +126,15 @@ function init() {
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  // OrbitControls only orbits: its pan moves sideways too, so right-drag /
-  // shift-drag (vertical pan), the wheel and two-finger gestures (vertical
-  // pan + zoom-to-point) are all handled below
+  // OrbitControls only keeps the camera level and aimed at its target:
+  // its rotate orbits round that target (which zooming moves off the
+  // obelisk's axis) and its pan moves sideways too, so orbiting, right-drag
+  // / shift-drag (vertical pan), the wheel and two-finger gestures
+  // (vertical pan + zoom-to-point) are all handled below
+  controls.enableRotate = false;
   controls.enablePan = false;
   controls.enableZoom = false;
   controls.touches.TWO = null;
-  controls.rotateSpeed = 0.9;
-  controls.zoomSpeed = 0.9;
   // level camera: orbit horizontally only
   controls.minPolarAngle = Math.PI / 2;
   controls.maxPolarAngle = Math.PI / 2;
@@ -196,6 +209,7 @@ function frameCamera(keepDirection = false) {
   const fitWidthDist = (0.95 * margin) / (2 * Math.tan(fov / 2) * camera.aspect);
   const dist = Math.max(fitHeightDist, fitWidthDist);
 
+  if (!keepDirection) pendingSpin = 0; // a reset drops any turn still easing out
   const dir = keepDirection
     ? camera.position.clone().sub(controls.target).normalize()
     : new THREE.Vector3(0.92, 0, 0.55).normalize();
@@ -224,7 +238,8 @@ function tick(now) {
   renderRequested = false;
   const dt = Math.min(0.1, (now - lastTick) / 1000 || 0);
   lastTick = now;
-  const moving = controls.update();
+  const spinning = applySpin();
+  const moving = controls.update() || spinning;
   updateFov();
   const animating = obelisk.update(camera, dt);
   renderer.render(scene, camera);
@@ -319,6 +334,54 @@ function onPointerMove(e) {
   hoveredPanel = panel;
   canvas.style.cursor = panel ? "pointer" : "";
   requestRender();
+}
+
+/* ---- orbit -----------------------------------------------------------
+   Turns the camera and its target together round the obelisk's vertical
+   centre line, so a drag always walks round the obelisk itself — even
+   after a zoom-to-point has moved the target onto a panel off the axis.
+   Close in on such a panel, the same turn would sweep it across the
+   screen far faster than from afar, so the turn is scaled down by how
+   much nearer the camera is to the target than to the axis.
+   ------------------------------------------------------------------- */
+function onRotateStart(e) {
+  if (e.pointerType === "touch" ? touches.size !== 1 : e.button !== 0 || e.shiftKey) return;
+  dragRotate = { id: e.pointerId, x: e.clientX };
+  onInteractStart();
+}
+
+function onRotateMove(e) {
+  if (!dragRotate || e.pointerId !== dragRotate.id) return;
+  // a second finger turns the gesture into pan + zoom
+  if (touches.size > 1) {
+    dragRotate = null;
+    return;
+  }
+  const dx = e.clientX - dragRotate.x;
+  dragRotate.x = e.clientX;
+  const dist = camera.position.distanceTo(controls.target);
+  const r = Math.hypot(controls.target.x, controls.target.z);
+  const scale = dist / (dist + r);
+  // "yes, height", as OrbitControls: drag speed matches on any aspect
+  pendingSpin -= (2 * Math.PI * dx * ROTATE_SPEED * scale) / (canvas.clientHeight || 1);
+  requestRender();
+}
+
+function onRotateEnd(e) {
+  if (dragRotate && e.pointerId === dragRotate.id) dragRotate = null;
+}
+
+// applies this frame's share of the outstanding turn; true while turning
+function applySpin() {
+  if (Math.abs(pendingSpin) < 1e-5) {
+    pendingSpin = 0;
+    return false;
+  }
+  const step = pendingSpin * ROTATE_DAMPING;
+  pendingSpin -= step;
+  camera.position.applyAxisAngle(UP, step);
+  controls.target.applyAxisAngle(UP, step);
+  return true;
 }
 
 /* ---- pan ------------------------------------------------------------
@@ -517,6 +580,10 @@ function addEventListeners() {
   canvas.addEventListener("pointermove", onDragPanMove);
   canvas.addEventListener("pointerup", onDragPanEnd);
   canvas.addEventListener("pointercancel", onDragPanEnd);
+  canvas.addEventListener("pointerdown", onRotateStart);
+  canvas.addEventListener("pointermove", onRotateMove);
+  canvas.addEventListener("pointerup", onRotateEnd);
+  canvas.addEventListener("pointercancel", onRotateEnd);
   canvas.addEventListener("pointerleave", () => {
     setPanelHover(hoveredPanel, false);
     hoveredPanel = null;

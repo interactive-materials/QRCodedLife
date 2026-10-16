@@ -340,12 +340,16 @@ function prismMesh(geometry, material) {
   return mesh;
 }
 
+// a steady glow (the cards' hover glow) so the slopes, shaded grey by the
+// lights, keep their true white and blue; hovering only enlarges it
+const FACE_GLOW = 0.4;
+
 function faceMaterial(params) {
   return new THREE.MeshStandardMaterial({
     roughness: 0.6,
     metalness: 0.0,
     side: THREE.DoubleSide,
-    emissiveIntensity: 0,
+    emissiveIntensity: FACE_GLOW,
     ...params,
   });
 }
@@ -365,7 +369,7 @@ export function buildPerspectivePrism(s = PRISM) {
 
   for (const name of ["front", "back"]) {
     const map = bakeFaceTexture(fc[name], sizeCm, camHeight, s.prismColor, s.qrColor);
-    // emissiveMap = the same graphic, so the hover glow lifts it evenly
+    // emissiveMap = the same graphic, so the glow lifts it evenly
     const mat = faceMaterial({ map, emissiveMap: map, emissive: 0xffffff });
     inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
@@ -376,5 +380,6 @@ export function buildPerspectivePrism(s = PRISM) {
 
   const group = new THREE.Group();
   group.add(inner);
+  group.userData.steadyGlow = true; // setPanelHover leaves the glow alone
   return group;
 }
