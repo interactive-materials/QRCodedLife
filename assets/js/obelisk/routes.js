@@ -6,7 +6,7 @@
 
    Face 1 has 3 active QR codes: anatomy, contrast, reliable. Face 2, to
    the right of face 1, has 6 active QR codes of varying size zig-zagging
-   down the face: tiles, handdrawn, angle, lens, color, scam. Face 3 is
+   down the face: tiles-qr, handdrawn, angle, lens, color, scam. Face 3 is
    blank and has none.
 
    The lens panel (face2-3) is a lenticular QR: seen from the left, centre
@@ -19,7 +19,7 @@ export const pageRoutes = {
   "face1-1": "anatomy",
   "face1-2": "contrast",
   "face1-3": "reliable",
-  "face2-1": "tiles",
+  "face2-1": "tiles-qr",
   "face2-2": "handdrawn",
   "face2-3": "lens-c",
   "face2-4": "angle",

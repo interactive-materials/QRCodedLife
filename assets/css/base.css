@@ -450,6 +450,7 @@ dialog.modal[open]::backdrop {
   width: min(60%, 16rem);
   height: auto;
   margin: 0 auto;
+  border-radius: 0;
   background: #fff;
 }
 

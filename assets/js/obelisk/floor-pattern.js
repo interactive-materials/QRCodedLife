@@ -1,6 +1,6 @@
 /* ==========================================================================
    floor-pattern.js — the 3 x 3 tile pattern the floor repeats, which the
-   tiles modal (content/tiles.js) lets people make.
+   tiles modal (content/tiles-qr.js) lets people make.
 
    The pattern is 9 booleans, row by row from the top left: true where a
    tile is placed. Each floor cell is one tile; the floor repeats the

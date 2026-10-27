@@ -118,7 +118,7 @@ const F2_TILE = 125 * MM;
 const F2_TILE_GAP = 2 * MM;
 const F2_TILE_PITCH = (F2_TILE + F2_TILE_GAP) / Math.SQRT2;
 const F2_TILE_ANCHOR = [149, 53]; // centre of the big top diamond
-const F2_TILE_ART = "tiles/assets/tile.svg";
+const F2_TILE_ART = "tiles-qr/assets/tile.svg";
 const F2_TILES = [[-1, -1], [1, -1], [-2, 0], [0, 0], [-1, 1], [1, 1], [-2, 2]];
 
 // the rectangular panels, by qrId index (face2-(n+1)). caption: a

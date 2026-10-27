@@ -9,7 +9,7 @@ active QR code opens a modal about it. No build step.
 index.html                 the obelisk scene
 anatomy/, contrast/, reliable/
                             face 1's 3 modal URLs
-tiles/, handdrawn/, lens-c/, lens-l/, lens-r/, angle/, color/, scam/
+tiles-qr/, handdrawn/, lens-c/, lens-l/, lens-r/, angle/, color/, scam/
                             face 2's modal URLs
                             (each folder's index.html is a copy of the root
                             one with ../ paths — keep them in sync)
@@ -32,7 +32,7 @@ Triangular prism, 0.60 m equilateral base, 2.00 m tall, colour `#112777`.
   group is centred on the face.
 - **Face 2** — to the right of face 1 — a 490mm x 1270mm column, centred
   on the face, laid out after the Artboard 5 artwork
-  (`obelisk/1x/Artboard 5.png`): the `tiles` diamonds bleed off the
+  (`obelisk/1x/Artboard 5.png`): the `tiles-qr` diamonds bleed off the
   top-left, then `handdrawn`, `angle`, `lens-c`, `color` and `scam`
   zig-zag down, with the "Q(art) codes by …" credits bottom-left.
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   tiles.js — the modal for /tiles/: its copy, layout and canvas, all in
+   tiles-qr.js — the modal for /tiles-qr/: its copy, layout and canvas, all in
    this file, in the same shape as content/color.js.
 
    Default-exports render({ titleId }), which returns the modal's HTML:
@@ -25,10 +25,10 @@ import {
   onPatternChange,
 } from "../assets/js/obelisk/floor-pattern.js";
 
-const TILE_SRC = new URL("../tiles/assets/tile.svg", import.meta.url).href;
+const TILE_SRC = new URL("../tiles-qr/assets/tile.svg", import.meta.url).href;
 
 const copy = {
-  title: "Tiled patterns",
+  title: "Coded Nyonya",
   stageLabel: "A 3 by 3 grid to tile; the floor repeats its pattern",
   heading: "Make your own pattern:",
   removeAll: "Remove all",
