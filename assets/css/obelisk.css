@@ -74,9 +74,10 @@ body {
 }
 
 .hud__title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--fg-muted);
+  font-family: var(--font-title);
+  font-size: 1.2rem;
+  font-weight: 400; /* NEL Rounded Regular, as on the totem */
+  color: var(--navy);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -124,6 +125,17 @@ body {
 .hud__controls .btn {
   pointer-events: auto;
   box-shadow: var(--shadow);
+  /* white, its symbols in the artwork's navy. NEL Rounded has no + − ↻,
+     so they stay in the body face, bold */
+  background: #fff;
+  border-color: #fff;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.hud__controls .btn:hover,
+.hud__controls .btn:focus-visible {
+  border-color: var(--navy);
 }
 
 .hud__hint {

@@ -22,22 +22,20 @@
   --hud-icon-inset-x: 1.45rem;
   --font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
-  /* the totem artwork's title face (modal titles) */
+  /* the totem artwork's title face (modal titles, the HUD title) */
   --font-title: "NEL ROUNDED", var(--font);
+  /* the totem artwork's navy (the modals, the HUD's title and button
+     symbols) and cyan (the shaft, the modals' rule) */
+  --navy: #112777;
+  --cyan: #00c7ff;
 }
 
-/* NEL Rounded, from the site (DM Sans comes from Google Fonts) */
+/* NEL Rounded, from the site (DM Sans comes from Google Fonts); Regular
+   only */
 @font-face {
   font-family: "NEL ROUNDED";
   src: url("../fonts/NELROUNDED-Regular.otf") format("opentype");
   font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "NEL ROUNDED";
-  src: url("../fonts/NELROUNDED-SemiBold.otf") format("opentype");
-  font-weight: 600;
   font-display: swap;
 }
 
@@ -200,7 +198,7 @@ dialog.modal {
   /* navy in both themes, with light text; the canvases draw from these
      tokens too, so they match the modal */
   --bg: #0b1a52;
-  --bg-elevated: #112777;
+  --bg-elevated: var(--navy);
   --fg: #fff;
   --fg-muted: #b8c0e0;
   --border: #3a4d94;
@@ -393,7 +391,7 @@ dialog.modal[open]::backdrop {
   flex: none;
   margin: 0 0 var(--modal-gap);
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--cyan);
 }
 
 .modal__text {

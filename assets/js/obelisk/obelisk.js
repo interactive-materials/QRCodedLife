@@ -466,8 +466,13 @@ function addCaptions(panel, captions = [], full, assetLoads) {
    stacked behind it down to the face, cut to the artwork's own outline
    (alphaTest), so a hand-drawn frame gets a hand-drawn edge. A card's is
    its outline extruded. Either is marked userData.edge (see
-   setPanelEnabled).
+   setPanelEnabled) and left out of raycasts (ignoreRaycast): picking and
+   the camera's collisions go by the panel's front alone. (A card edge's
+   undrawn back cap faces into the obelisk, and keepCameraOutside's ray,
+   cast from an orbit target inside it, would stop on it, pulling the
+   camera in.)
    ------------------------------------------------------------------- */
+const EDGE_DATA = { edge: true, ignoreRaycast: true };
 const EDGE_DEPTH = (PANEL_THICK - 0.2) * MM; // stops short of the face art
 
 // an edge drawn a little deeper than it is, so it never shows through the
@@ -484,7 +489,7 @@ function thickenArt(panel, tex) {
   for (let k = 1; k <= EDGE_LAYERS; k++) {
     const layer = new THREE.Mesh(panel.geometry, material);
     layer.position.z = (-EDGE_DEPTH * k) / EDGE_LAYERS;
-    layer.userData.edge = true;
+    layer.userData = { ...EDGE_DATA };
     panel.add(layer);
   }
 }
@@ -503,7 +508,7 @@ function thickenCard(panel, w, h, r, color) {
     ],
   );
   edge.position.z = -EDGE_DEPTH; // its walls run from the card back to the face
-  edge.userData.edge = true;
+  edge.userData = { ...EDGE_DATA };
   panel.add(edge);
 }
 
@@ -560,7 +565,6 @@ const SVG_FONTS = [
   { family: "DM Sans", weight: 500, file: "assets/fonts/DMSans-Medium.ttf" },
   { family: "DM Sans", weight: 700, file: "assets/fonts/DMSans-Bold.ttf" },
   { family: "NEL ROUNDED", weight: 400, file: "assets/fonts/NELROUNDED-Regular.otf" },
-  { family: "NEL ROUNDED", weight: 600, file: "assets/fonts/NELROUNDED-SemiBold.otf" },
 ];
 
 // each font file is read once, however many SVGs use it

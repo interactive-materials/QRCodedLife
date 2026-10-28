@@ -227,6 +227,54 @@ function frameCamera(keepDirection = false) {
   requestRender();
 }
 
+/* ---- reset view -------------------------------------------------------
+   The reset button (and the R key) glide back to the starting view over
+   RESET_MS rather than jump: the orbit target slides to the centre while
+   the camera swings round it — angle by the shorter way round, distance
+   and height easing in step — so it never cuts through the obelisk. Any
+   interaction stops the glide where it is.
+   ------------------------------------------------------------------- */
+const RESET_MS = 900;
+let resetGlide = null; // { from, to: { target, offset: Spherical }, t0 }
+
+function resetView() {
+  const from = {
+    target: controls.target.clone(),
+    offset: new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target)),
+  };
+  // frameCamera works out the starting view; take it, then go back
+  const camFrom = camera.position.clone();
+  controls.target.copy(HOME_TARGET);
+  frameCamera(false);
+  const to = {
+    target: controls.target.clone(),
+    offset: new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target)),
+  };
+  controls.target.copy(from.target);
+  camera.position.copy(camFrom);
+  resetGlide = { from, to, t0: performance.now() };
+  requestRender();
+}
+
+// one frame of the glide; true while it runs
+function applyResetGlide(now) {
+  if (!resetGlide) return false;
+  const { from, to, t0 } = resetGlide;
+  const k = Math.min(1, (now - t0) / RESET_MS);
+  const e = k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2; // ease in-out
+  let dTheta = to.offset.theta - from.offset.theta;
+  dTheta = ((((dTheta + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  const offset = new THREE.Spherical(
+    THREE.MathUtils.lerp(from.offset.radius, to.offset.radius, e),
+    THREE.MathUtils.lerp(from.offset.phi, to.offset.phi, e),
+    from.offset.theta + dTheta * e,
+  );
+  controls.target.lerpVectors(from.target, to.target, e);
+  camera.position.setFromSpherical(offset).add(controls.target);
+  if (k === 1) resetGlide = null;
+  return true;
+}
+
 /* ---- render on demand ----------------------------------------------- */
 function requestRender() {
   if (renderRequested) return;
@@ -238,8 +286,9 @@ function tick(now) {
   renderRequested = false;
   const dt = Math.min(0.1, (now - lastTick) / 1000 || 0);
   lastTick = now;
+  const gliding = applyResetGlide(now);
   const spinning = applySpin();
-  const moving = controls.update() || spinning;
+  const moving = controls.update() || spinning || gliding;
   updateFov();
   const animating = obelisk.update(camera, dt);
   renderer.render(scene, camera);
@@ -259,6 +308,7 @@ function updateFov() {
 
 /* ---- interaction ---------------------------------------------------- */
 function onInteractStart() {
+  resetGlide = null; // the user takes over from a reset under way
   dismissHint();
 }
 
@@ -522,6 +572,7 @@ function onTouchPointerEnd(e) {
    homeDist, where zooming out stops. The orbit angle is kept.
    ------------------------------------------------------------------- */
 function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
+  resetGlide = null; // as onInteractStart (the zoom buttons don't call it)
   if (factor === 1) return;
   if (factor > 1) {
     zoomOutBy(factor);
@@ -595,8 +646,7 @@ function addEventListeners() {
     .getElementById("zoom-out")
     .addEventListener("click", () => zoomBy(1.25));
   document.getElementById("reset-view").addEventListener("click", () => {
-    controls.target.set(0, 0, 0);
-    frameCamera(false);
+    resetView();
     dismissHint();
   });
 
@@ -610,10 +660,7 @@ function addEventListeners() {
   });
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "r" && !isModalOpen()) {
-      controls.target.set(0, 0, 0);
-      frameCamera(false);
-    }
+    if (e.key === "r" && !isModalOpen()) resetView();
   });
 }
 
