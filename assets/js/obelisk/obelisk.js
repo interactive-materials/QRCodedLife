@@ -4,18 +4,19 @@
    with a grid of QR finder markers, its cells tiled in the 3 x 3 pattern
    made in the tiles modal (see floor-pattern.js).
 
-   The 3 shaft faces are not identical:
-     Face 1 — three SVG artwork panels: anatomy (250mm wide) and
-               contrast (140mm wide) side by side, above reliable
-               (400mm wide), each as tall as its artwork's proportions
-               make it. See layoutFace1() for the exact geometry.
-     Face 2 — to the right of face 1 — a bespoke 490mm x 1270mm column
-               of 6 QR codes of varying size, zig-zagging top to bottom:
-               tiles, handdrawn, angle (a 3D perspective QR prism — see
-               perspective-prism.js), lens (a lenticular QR: lens-l /
-               lens-c / lens-r by viewing angle), color, scam. Positions follow the Artboard 5
-               artwork. See layoutFace2() for the exact geometry.
-     Face 3 — blank. No panels, no QR codes; just the bare shaft colour.
+   The 3 shaft faces are not identical. Each is laid out after its
+   600mm x 2300mm artwork in totem-bg/ (the face's full width and height):
+     Face 1 — the artwork (intro copy, "What Makes A Good QR Code?"),
+               with 3 SVG artwork panels on it: anatomy and contrast
+               side by side, above reliable. See layoutFace1().
+     Face 2 — to the right of face 1 — the artwork ("What Else Can A
+               QR Code Be?", captions, credits), with 6 QR codes on it,
+               zig-zagging top to bottom: tiles, handdrawn, angle (a 3D
+               perspective QR prism — see perspective-prism.js), lens (a
+               lenticular QR: lens-l / lens-c / lens-r by viewing angle),
+               color, scam. See layoutFace2().
+     Face 3 — one artwork filling the whole face. No QR codes. See
+               layoutFace3().
 
    buildObelisk() -> {
      group,      THREE.Group   (add to the scene; centred on the origin)
@@ -43,7 +44,7 @@ import { loadQrossword, drawQrossword, getFound, onFoundChange } from "./qrosswo
 
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
-const SHAFT_H = 2.0; // shaft height
+const SHAFT_H = 2.3; // shaft height (face 3's artwork is 600mm x 2300mm)
 // the floor runs out toward the horizon: a disc FLOOR_SIZE across that
 // fades to transparent (showing the sky) from FLOOR_FADE out to its edge
 const FLOOR_SIZE = 300; // floor disc diameter (m)
@@ -76,110 +77,107 @@ const CARD_RADIUS = 0.028;
 // per-face panel arrangement:
 //   "face1"  — face 1's three fixed-size panels (see layoutFace1)
 //   "face2"  — face 2's bespoke 490mm x 1270mm column (see layoutFace2)
-//   "blank"  — no panels at all (face 3)
+//   "face3"  — face 3's full-face artwork (see layoutFace3)
+//   "blank"  — no panels at all
 const FACE_LAYOUTS = [
   { type: "face1" }, // face 1 — anatomy, contrast, reliable
   { type: "face2" }, // face 2 — to the right: 6 QR codes, zig-zag column
-  { type: "blank" }, // face 3 — blank, no QR codes
+  { type: "face3" }, // face 3 — the full-face artwork, no QR codes
 ];
+
+// face 3: one artwork the size of the whole face, edge to edge
+const F3_ART = "totem-bg/SVG/Asset 1.svg";
+// its raster's long side: the face is tall and its small print needs
+// more pixels than the panels' SVG_PX
+const F3_ART_PX = 4096;
 
 // ---- fixed physical envelopes, in metres (1mm = 0.001m) -----------------
 const MM = 0.001;
 
-// face 1: anatomy and contrast side by side (bottom-aligned), reliable
-// centred beneath them; the whole group is centred on the face. Each
-// panel is its SVG artwork, at the slot's width with the height its
-// viewBox's proportions give.
-const F1_ANATOMY_ART = "anatomy/assets/AnatomyQR.svg";
-const F1_CONTRAST_ART = "contrast/assets/ContrastQR.svg";
-const F1_RELIABILITY_ART = "reliable/assets/ReliabilityQR.svg";
-const F1_ANATOMY_W = 250 * MM;
-const F1_ANATOMY_H = F1_ANATOMY_W * (500.15 / 636.53);
-const F1_CONTRAST_W = 140 * MM;
-const F1_CONTRAST_H = F1_CONTRAST_W * (442.36 / 396.85);
-const F1_RELIABILITY_W = 400 * MM;
-const F1_RELIABILITY_H = F1_RELIABILITY_W * (316.68 / 1388.98);
-const F1_GAP = 10 * MM; // between anatomy/contrast, and above reliable
-const F1_PAIR_W = F1_ANATOMY_W + F1_GAP + F1_CONTRAST_W;
-const F1_PAIR_H = Math.max(F1_ANATOMY_H, F1_CONTRAST_H);
-const F1_GROUP_H = F1_PAIR_H + F1_GAP + F1_RELIABILITY_H;
-
-// face 2: a 490mm x 1270mm column centred on the face, laid out after
-// the Artboard 5 artwork. All positions are in mm from the column's
-// top-left corner (x right, y down), as measured on the artboard.
-const F2_COLUMN_W = 490 * MM;
-const F2_COLUMN_H = 1270 * MM;
-
-// tiles: 125mm squares rotated 45deg, 2mm apart, clipped at the
-// column's top and left edges. [i, j] steps are along the diagonal grid
-// from the anchor diamond's centre. Each shows the F2_TILE_ART square,
-// its edges along the diamond's.
-const F2_TILE = 125 * MM;
-const F2_TILE_GAP = 2 * MM;
-const F2_TILE_PITCH = (F2_TILE + F2_TILE_GAP) / Math.SQRT2;
-const F2_TILE_ANCHOR = [149, 53]; // centre of the big top diamond
-const F2_TILE_ART = "tiles-qr/assets/tile.svg";
-const F2_TILES = [[-1, -1], [1, -1], [-2, 0], [0, 0], [-1, 1], [1, 1], [-2, 2]];
-
-// the rectangular panels, by qrId index (face2-(n+1)). caption: a
-// 100mm x 20mm white label at [x, y], attached to that panel. art: the
-// panel is artwork images instead of a coloured card — a frame image
-// filling the panel, optionally with a QR image at qrBox [x, y, size] (mm
-// from the panel's top-left, measured on the artboard). card: the panel is
-// a plain white card as on the artboard — corner radius in mm (0 = square),
-// with a QR at qrBox [x, y, size] (mm, the modules' extent): the image at
-// `qr` (qrFrac: share of its width that is modules, the rest being its
-// white margin), or a placeholder QR when there is none yet — or, with
-// `lenticular`, one QR per viewing angle (see makeLenticular). qrossword:
-// the panel is QROSSWORD, showing the words found in its modal (see
-// makeQrosswordPanel). prism: the
-// panel is the 3D perspective QR prism (perspective-prism.js) instead of a
-// flat card — its footprint is PRISM.W x PRISM.L, i.e. 210mm x 160mm.
-const F2_CAPTION_W = 100 * MM;
-const F2_CAPTION_H = 20 * MM;
-const F2_TILES_CAPTION = [100, 225];
-
-// credits: "Q(art) codes by" + names, bottom-left of the column. [x, y]
-// is the top-left of the text block; sizes are font sizes in mm.
-const F2_CREDITS = {
-  x: 6,
-  y: 1077,
-  w: 300, // canvas extent, generous enough for the longest line
-  h: 240,
-  color: "#00C7FF",
-  font: '"DM Mono", ui-monospace, monospace',
-  titleSize: 16,
-  titleLeading: 24,
-  nameSize: 12,
-  nameLeading: 12,
-  namesTop: 72, // first name's top, from the block's top
-  title: ["Q(art) codes", 
-    "by Interactive Materials Lab", "↓"],
-  names: [
-    "Clement Zheng",
-    "Yong Zhen Zhou",
-    "Vina Setiawaty",
-    "Stephanie Beh",
-    "Jan Juarez",
-    "Tan Ler Shan",
-    "Danikh Nizam",
-    "Myron Teo",
-  ],
+// faces 1 and 2: each shows FACE_ART.full — the face as designed, its
+// QR panels drawn in — except round its live panels, where FACE_ART.bg
+// (the same face without the panels) shows instead, PANEL_CLEAR mm past
+// each panel's edges, so no drawn QR shows round or under a live panel.
+// Panel positions are mm on the artboard from its top-left corner (x
+// right, y down), as measured on the full artwork; a panel's [x, y] is
+// its top-left. A panel's captions ([x, y, w, h] each) are its title and
+// caption on the artwork: cut out of FACE_ART.full and attached to the
+// panel, so they grow with it on hover (FACE_ART.bg shows in their place
+// on the face).
+const FACE_ART = {
+  face1: { full: "totem-bg/1x/Asset 2.png", bg: "totem-bg/1x/Asset 4.png" },
+  face2: { full: "totem-bg/1x/Asset 3.png", bg: "totem-bg/1x/Asset 5.png" },
 };
-const F2_PANELS = [
-  // handdrawn: QROSSWORD, the square QR as the modal draws it, with the
-  // boxes of the words found there. It fills the 200 x 220mm slot's
-  // width, centred in its height: 200 x 200mm.
+const ARTBOARD_W = SIDE / MM; // 600mm
+const ARTBOARD_H = SHAFT_H / MM; // 2300mm
+const PANEL_CLEAR = 2;
+
+// the face artwork lies FACE_Z off the shaft; each panel (but the
+// perspective prism) is PANEL_THICK mm thick on it, its front at PANEL_Z,
+// its edges its own colours darkened by EDGE_TINT
+const FACE_Z = 0.002;
+const PANEL_THICK = 3;
+const PANEL_Z = FACE_Z + PANEL_THICK * MM;
+const EDGE_TINT = 0xbfbfbf;
+const EDGE_LAYERS = 12; // copies of an artwork panel making up its edge
+
+// artboard mm (top-left origin, y down) -> face metres (centre, y up)
+const toFaceX = (xMm) => (xMm - ARTBOARD_W / 2) * MM;
+const toFaceY = (yMm) => (ARTBOARD_H / 2 - yMm) * MM;
+
+// face 1's panels, by qrId index (face1-(n+1)): each its SVG artwork
+// (frame), or a card as F2_PANELS' (contrast: its artwork is only the
+// QR's white modules, on the artboard's grey rounded card)
+const F1_PANELS = [
   {
-    n: 1, x: 290, y: 260, w: 200, h: 200, // handdrawn
-    qrossword: true,
+    n: 0, x: 53.9, y: 891.5, w: 157.1, h: 157.1, // anatomy
+    frame: "totem-bg/artwork/SVG/Asset 2.svg",
+    captions: [[50, 1057, 200, 52]],
   },
   {
-    n: 2, x: 280, y: 615, w: 180, h: 150, // lens (lenticular: l / c / r)
+    n: 1, x: 386.4, y: 891.5, w: 160.4, h: 160.4, // contrast
+    card: { color: 0xd3d3d3, radius: 15, qrBox: [33.84, 33.84, 92.71], qr: "totem-bg/artwork/SVG/Asset 3.svg" },
+    captions: [[386, 1057, 162, 52]],
+  },
+  {
+    n: 2, x: 52.5, y: 1138.7, w: 493.5, h: 82.4, // reliable
+    frame: "totem-bg/artwork/SVG/Asset 4.svg",
+    captions: [[52, 1236, 362, 54]],
+  },
+];
+
+// face 2's tiles (face2-1): F2_TILE squares of F2_TILE_ART, upright and
+// F2_TILE_GAP apart, in an L: [column, row] steps from the top-left
+// tile, whose top-left is F2_TILES_AT
+const F2_TILE = 140;
+const F2_TILE_GAP = 2;
+const F2_TILES_AT = [53.6, 450.2];
+const F2_TILES = [[0, 0], [1, 0], [0, 1]];
+const F2_TILE_ART = "tiles-qr/assets/tile.svg";
+const F2_TILES_CAPTIONS = [[204, 601, 88, 23]];
+
+// face 2's rectangular panels, by qrId index (face2-(n+1)). art: the
+// panel is artwork images — a frame image filling the panel, optionally
+// with a QR image at qrBox [x, y, size] (mm from the panel's top-left).
+// card: the panel is a plain white card — corner radius in mm (0 =
+// square), with a QR at qrBox [x, y, size] (mm, the modules' extent): the
+// image at `qr` (qrFrac: share of its width that is modules, the rest
+// being its white margin), or a placeholder QR when there is none yet —
+// or, with `lenticular`, one QR per viewing angle (see makeLenticular).
+// qrossword: the panel is QROSSWORD, showing the words found in its modal
+// (see makeQrosswordPanel). prism: the panel is the 3D perspective QR
+// prism (perspective-prism.js) instead of a flat card — its footprint is
+// PRISM.W x PRISM.L, i.e. 210mm x 160mm.
+const F2_PANELS = [
+  // handdrawn: QROSSWORD's square, the art centred in it at full height
+  { n: 1, x: 382.1, y: 664.9, w: 164.3, h: 164.3, qrossword: true, captions: [[481, 839, 68, 22]] },
+  {
+    n: 2, x: 387.4, y: 1183.1, w: 159.3, h: 119.5, // lens (lenticular: l / c / r)
+    captions: [[503, 1313, 49, 24]],
     card: {
-      radius: 5,
-      qrBox: [31.7, 12.7, 114],
-      qrFrac: 1150 / 1218,
+      radius: 13,
+      qrBox: [39.5, 19.0, 82.5],
+      qrFrac: 1110 / 1218,
       lenticular: {
         // left to right, as seen moving round the panel from its left
         views: [
@@ -191,28 +189,23 @@ const F2_PANELS = [
       },
     },
   },
-  { n: 3, x: 5, y: 430, w: PRISM.W * 10, h: PRISM.L * 10, caption: [5, 600], prism: true }, // angle
+  // angle: centred on the artwork's 210.5mm x 161.5mm card
+  { n: 3, x: 53.45, y: 805.25, w: PRISM.W * 10, h: PRISM.L * 10, prism: true, captions: [[51, 977, 61, 23]] },
   {
-    n: 4, x: 70, y: 781, w: 150, h: 195, // color
-    art: {
-      frame: "color/assets/frame_color.png",
-      qr: "color/assets/qr-color.png",
-      qrBox: [30.3, 51.2, 89.3],
-    },
+    n: 4, x: 53.6, y: 1282.5, w: 150.4, h: 150.4, // color
+    art: { frame: "totem-bg/artwork/SVG/Asset 5.svg" },
+    captions: [[56, 1442, 52, 23]],
   },
-  // scam: the poster image is the whole panel. Its proportions
-  // (1955 x 2609px) don't match the artboard's 148 x 210mm slot, so it is
-  // fitted to the slot's width, keeping its aspect, and centred in the slot
-  // height: 148 x 197.5mm.
   {
-    n: 5, x: 315, y: 996.25, w: 148, h: 197.5, // scam
-    art: { frame: "scam/assets/DDQRV2.png" },
+    n: 5, x: 379.0, y: 1421.7, w: 168.5, h: 223.4, // scam
+    art: { frame: "totem-bg/artwork/SVG/Asset 6.svg" },
+    captions: [[482, 1656, 68, 22]],
   },
 ];
 
 // poster-ish palette: pink / cyan / yellow / violet / teal
 const PALETTE = [0xff8fb1, 0x33c9ef, 0xffd23f, 0x9b5de5, 0x2ec4b6];
-const BODY_COLOR = 0x112777; // obelisk shaft + caps
+const BODY_COLOR = 0x00c7ff; // obelisk shaft + caps: the artwork's background cyan
 
 /* ---- seeded RNG ----------------------------------------------------- */
 function mulberry32(seed) {
@@ -369,89 +362,173 @@ function makePanel(qrId, w, h, color, align, seed, framed) {
   return panel;
 }
 
-/* ---- face 1's bespoke rectangle --------------------------------------
-   Anatomy (250mm x 190mm) and contrast (140mm x 220mm) side by side,
-   bottom-aligned, above reliable (400mm x 140mm). Each row is centred
-   horizontally and the whole group is centred vertically on the face.
+/* ---- a face's artwork (faces 1 and 2) --------------------------------
+   A plane the face's size showing art.full, with art.bg in place of it
+   over each rect ({ x, y, w, h } mm on the artboard) and PANEL_CLEAR
+   round it. Unlit, like the artwork panels, so it keeps its colours. Not
+   a link; hidden until both images load. Returns the mesh and a promise
+   of the art.full image, for addCaptions().
+   ------------------------------------------------------------------- */
+function loadImage(path) {
+  const img = new Image();
+  img.src = new URL(path, SITE_ROOT).href;
+  return img.decode().then(() => img);
+}
+
+function makeFaceArt(art, rects, assetLoads) {
+  // opaque (the artwork is): a transparent face would be depth-sorted
+  // with the panels, and a panel drawn first would mask it with its soft
+  // edge, letting the shaft show round the panel. Drawn a hair deeper
+  // than it is, so the captions lying just above it never flicker with it
+  // (a constant offset only: one scaled by slope could sink it behind the
+  // shaft when seen edge-on)
+  const material = new THREE.MeshBasicMaterial({ polygonOffset: true, polygonOffsetUnits: 4 });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(SIDE, SHAFT_H), material);
+  mesh.position.z = FACE_Z;
+  mesh.visible = false;
+  mesh.userData.ignoreRaycast = true;
+  const fullLoad = loadImage(art.full);
+  assetLoads.push(
+    Promise.all([fullLoad, loadImage(art.bg)])
+      .then(([full, bg]) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = full.naturalWidth;
+        canvas.height = full.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(full, 0, 0);
+        // the same artboard rect in each image's own pixels (the two
+        // exports can differ by a pixel in size)
+        const pxRect = (img, { x, y, w, h }) => {
+          const sx = img.naturalWidth / ARTBOARD_W;
+          const sy = img.naturalHeight / ARTBOARD_H;
+          const c = PANEL_CLEAR;
+          return [(x - c) * sx, (y - c) * sy, (w + 2 * c) * sx, (h + 2 * c) * sy];
+        };
+        for (const rect of rects) ctx.drawImage(bg, ...pxRect(bg, rect), ...pxRect(full, rect));
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        material.map = tex;
+        material.needsUpdate = true;
+        mesh.visible = true;
+      })
+      .catch((err) => console.error("obelisk: could not load face art", err)),
+  );
+  return { mesh, full: fullLoad };
+}
+
+// the rects to show art.bg over: each panel, and each of its captions
+function faceArtRects(panels) {
+  return panels.flatMap((p) => [p, ...(p.captions || []).map(([x, y, w, h]) => ({ x, y, w, h }))]);
+}
+
+// each caption ([x, y, w, h] mm on the artboard) cut out of the full
+// artwork onto its own plane, parented to the panel at its place on the
+// face (flat on it, just above the face artwork), so it grows, dims and
+// links with the panel
+function addCaptions(panel, captions = [], full, assetLoads) {
+  for (const [x, y, w, h] of captions) {
+    const material = new THREE.MeshBasicMaterial();
+    const caption = new THREE.Mesh(new THREE.PlaneGeometry(w * MM, h * MM), material);
+    // placed on the face, then into the panel's own frame (the prism's
+    // is turned), so it sits square on the face whatever the panel's is
+    caption.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), FACE_Z + 0.0005);
+    panel.updateMatrix();
+    caption.applyMatrix4(panel.matrix.clone().invert());
+    caption.visible = false;
+    panel.add(caption);
+    assetLoads.push(
+      full
+        .then((img) => {
+          const sx = img.naturalWidth / ARTBOARD_W;
+          const sy = img.naturalHeight / ARTBOARD_H;
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(w * sx);
+          canvas.height = Math.round(h * sy);
+          canvas
+            .getContext("2d")
+            .drawImage(img, x * sx, y * sy, w * sx, h * sy, 0, 0, canvas.width, canvas.height);
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 4;
+          material.map = tex;
+          material.needsUpdate = true;
+          caption.visible = true;
+        })
+        .catch(() => {}), // makeFaceArt reports a failed load
+    );
+  }
+}
+
+/* ---- panel thickness ---------------------------------------------------
+   An artwork panel's edge is EDGE_LAYERS tinted copies of its artwork
+   stacked behind it down to the face, cut to the artwork's own outline
+   (alphaTest), so a hand-drawn frame gets a hand-drawn edge. A card's is
+   its outline extruded. Either is marked userData.edge (see
+   setPanelEnabled).
+   ------------------------------------------------------------------- */
+const EDGE_DEPTH = (PANEL_THICK - 0.2) * MM; // stops short of the face art
+
+// an edge drawn a little deeper than it is, so it never shows through the
+// panel's front, however far off or askew the camera
+const EDGE_OFFSET = { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 };
+
+function thickenArt(panel, tex) {
+  const material = new THREE.MeshBasicMaterial({
+    map: tex,
+    color: EDGE_TINT,
+    alphaTest: 0.5,
+    ...EDGE_OFFSET,
+  });
+  for (let k = 1; k <= EDGE_LAYERS; k++) {
+    const layer = new THREE.Mesh(panel.geometry, material);
+    layer.position.z = (-EDGE_DEPTH * k) / EDGE_LAYERS;
+    layer.userData.edge = true;
+    panel.add(layer);
+  }
+}
+
+// only the extrusion's side walls (its caps, material group 0, are left
+// undrawn: a cap just behind the card would show through it in patches)
+function thickenCard(panel, w, h, r, color) {
+  const edge = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(roundedRectShape(w, h, r), { depth: EDGE_DEPTH, bevelEnabled: false }),
+    [
+      new THREE.MeshBasicMaterial({ visible: false }),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(color).multiply(new THREE.Color(EDGE_TINT)),
+        ...EDGE_OFFSET,
+      }),
+    ],
+  );
+  edge.position.z = -EDGE_DEPTH; // its walls run from the card back to the face
+  edge.userData.edge = true;
+  panel.add(edge);
+}
+
+/* ---- face 1 ------------------------------------------------------------
+   The face's artwork, with anatomy and contrast side by side above
+   reliable, each its F1_PANELS artwork.
    ------------------------------------------------------------------- */
 function layoutFace1(faceIndex, qrTargets, assetLoads) {
   const group = new THREE.Group();
+  const faceArt = makeFaceArt(FACE_ART.face1, faceArtRects(F1_PANELS), assetLoads);
+  group.add(faceArt.mesh);
 
-  // n is the panel's fixed qrId index (0 = anatomy, 1 = contrast,
-  // 2 = reliable) -> qrId face1-(n+1).
-  const addPanel = (n, w, h, x, y, frame) => {
+  for (const { n, x, y, w, h, frame, card, captions } of F1_PANELS) {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
-    const { panel, ready } = makeArtPanel(qrId, w, h, { frame });
+    const { panel, ready } = card
+      ? makeCardPanel(qrId, w * MM, h * MM, card)
+      : makeArtPanel(qrId, w * MM, h * MM, { frame });
     assetLoads.push(ready);
-    panel.position.set(x, y, 0.006);
+    panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
+    addCaptions(panel, captions, faceArt.full, assetLoads);
     group.add(panel);
     qrTargets.push(panel);
-  };
-
-  const bottom = -F1_GROUP_H / 2; // bottom edge of the whole group
-  const pairBottom = bottom + F1_RELIABILITY_H + F1_GAP;
-  const left = -F1_PAIR_W / 2;
-  const anatomyX = left + F1_ANATOMY_W / 2;
-  const contrastX = left + F1_ANATOMY_W + F1_GAP + F1_CONTRAST_W / 2;
-
-  addPanel(0, F1_ANATOMY_W, F1_ANATOMY_H, anatomyX, pairBottom + F1_ANATOMY_H / 2, F1_ANATOMY_ART); // anatomy
-  addPanel(1, F1_CONTRAST_W, F1_CONTRAST_H, contrastX, pairBottom + F1_CONTRAST_H / 2, F1_CONTRAST_ART); // contrast
-  addPanel(2, F1_RELIABILITY_W, F1_RELIABILITY_H, 0, bottom + F1_RELIABILITY_H / 2, F1_RELIABILITY_ART); // reliable
+  }
 
   return group;
-}
-
-/* ---- credits text (canvas texture on a plane) ------------------------
-   Returns a centred plane c.w x c.h mm, plus a promise that resolves
-   once the text has been redrawn in its web font.
-   ------------------------------------------------------------------- */
-function makeCredits(c) {
-  const pxPerMm = 10;
-  const canvas = document.createElement("canvas");
-  canvas.width = c.w * pxPerMm;
-  canvas.height = c.h * pxPerMm;
-  const ctx = canvas.getContext("2d");
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-
-  const draw = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = c.color;
-    ctx.textBaseline = "top";
-    ctx.font = `${c.titleSize * pxPerMm}px ${c.font}`;
-    c.title.forEach((line, i) =>
-      ctx.fillText(line, 0, i * c.titleLeading * pxPerMm),
-    );
-    ctx.font = `${c.nameSize * pxPerMm}px ${c.font}`;
-    c.names.forEach((line, i) =>
-      ctx.fillText(line, 0, (c.namesTop + i * c.nameLeading) * pxPerMm),
-    );
-    tex.needsUpdate = true;
-  };
-  draw();
-
-  const family = c.font.split(",")[0];
-  const ready =
-    document.fonts && document.fonts.load
-      ? Promise.all([
-          document.fonts.load(`${c.titleSize * pxPerMm}px ${family}`),
-          document.fonts.load(`${c.nameSize * pxPerMm}px ${family}`),
-        ])
-          .then(draw)
-          .catch(() => {})
-      : Promise.resolve();
-
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(c.w * MM, c.h * MM),
-    new THREE.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      toneMapped: false,
-    }),
-  );
-  mesh.userData.ignoreRaycast = true;
-  return { mesh, ready };
 }
 
 /* ---- artwork panel (frame image + optional QR image) ----------------
@@ -470,12 +547,96 @@ const SVG_PX = 2048;
 
 // each SVG is read once, however many textures use it
 const svgCanvasLoads = new Map();
-function loadSvgCanvas(href) {
-  if (!svgCanvasLoads.has(href)) svgCanvasLoads.set(href, readSvgCanvas(href));
-  return svgCanvasLoads.get(href);
+function loadSvgCanvas(href, px) {
+  const key = `${px} ${href}`;
+  if (!svgCanvasLoads.has(key)) svgCanvasLoads.set(key, readSvgCanvas(href, px));
+  return svgCanvasLoads.get(key);
 }
 
-async function readSvgCanvas(href) {
+// the artwork's text fonts. An SVG drawn as an image can't reach the
+// page's web fonts or any other file, only what it carries itself, so
+// each face a SVG's text names is embedded in it as a data URI.
+const SVG_FONTS = [
+  { family: "DM Sans", weight: 500, file: "assets/fonts/DMSans-Medium.ttf" },
+  { family: "DM Sans", weight: 700, file: "assets/fonts/DMSans-Bold.ttf" },
+  { family: "NEL ROUNDED", weight: 400, file: "assets/fonts/NELROUNDED-Regular.otf" },
+  { family: "NEL ROUNDED", weight: 600, file: "assets/fonts/NELROUNDED-SemiBold.otf" },
+];
+
+// each font file is read once, however many SVGs use it
+const fontDataLoads = new Map();
+function loadFontData(file) {
+  if (!fontDataLoads.has(file)) {
+    const href = new URL(file, SITE_ROOT).href;
+    const load = fetch(href)
+      .then((res) => {
+        if (!res.ok) throw new Error(`could not load ${href}`);
+        return res.blob();
+      })
+      .then(
+        (blob) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          }),
+      );
+    fontDataLoads.set(file, load);
+  }
+  return fontDataLoads.get(file);
+}
+
+// an @font-face rule per SVG_FONTS face whose family the text names (a
+// font that fails to load is skipped, and its text falls back). swap: the
+// text shows in a fallback while its font loads, rather than not at all
+async function svgFontFaces(text) {
+  const used = SVG_FONTS.filter(({ family }) => text.includes(family));
+  const rules = await Promise.all(
+    used.map(({ family, weight, file }) =>
+      loadFontData(file)
+        .then(
+          (data) =>
+            `@font-face{font-family:"${family}";font-weight:${weight};font-display:swap;src:url(${data})}`,
+        )
+        .catch((err) => (console.error("obelisk: could not load font", err), "")),
+    ),
+  );
+  return rules.join("");
+}
+
+// an SVG image only starts loading its embedded fonts when first drawn,
+// and draws its text in them some frames later. Draw it small until the
+// text has changed (the fonts arrived) and then held still, or until
+// FONT_SETTLE_MS passes (they were already there, or never came).
+const FONT_SETTLE_MS = 2000;
+const FONT_PROBE_PX = 96; // the probe's width
+
+async function fontsSettled(img, aspect) {
+  const probe = document.createElement("canvas");
+  probe.width = FONT_PROBE_PX;
+  probe.height = Math.max(1, Math.round(FONT_PROBE_PX / aspect));
+  const ctx = probe.getContext("2d", { willReadFrequently: true });
+  const snap = () => {
+    ctx.clearRect(0, 0, probe.width, probe.height);
+    ctx.drawImage(img, 0, 0, probe.width, probe.height);
+    return ctx.getImageData(0, 0, probe.width, probe.height).data;
+  };
+  const same = (a, b) => a.every((v, i) => v === b[i]);
+
+  const start = performance.now();
+  let prev = snap();
+  let changed = false;
+  while (performance.now() - start < FONT_SETTLE_MS) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const next = snap();
+    if (!same(prev, next)) changed = true;
+    else if (changed) return;
+    prev = next;
+  }
+}
+
+async function readSvgCanvas(href, px) {
   const res = await fetch(href);
   if (!res.ok) throw new Error(`could not load ${href}`);
   const text = await res.text();
@@ -486,14 +647,25 @@ async function readSvgCanvas(href) {
   const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
   const aspect = vb.length === 4 && vb[2] > 0 && vb[3] > 0 ? vb[2] / vb[3] : 1;
 
-  const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+  let source = text;
+  let fonts = "";
+  if (svg.querySelector("text")) fonts = await svgFontFaces(text);
+  if (fonts) {
+    const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    style.textContent = fonts;
+    svg.prepend(style);
+    source = new XMLSerializer().serializeToString(svg);
+  }
+
+  const url = URL.createObjectURL(new Blob([source], { type: "image/svg+xml" }));
   try {
     const img = new Image();
     img.src = url;
     await img.decode();
+    if (fonts) await fontsSettled(img, aspect);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(aspect >= 1 ? SVG_PX : SVG_PX * aspect);
-    canvas.height = Math.round(aspect >= 1 ? SVG_PX / aspect : SVG_PX);
+    canvas.width = Math.round(aspect >= 1 ? px : px * aspect);
+    canvas.height = Math.round(aspect >= 1 ? px / aspect : px);
     canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
     return canvas;
   } finally {
@@ -501,10 +673,10 @@ async function readSvgCanvas(href) {
   }
 }
 
-function loadTexture(path, pixelated) {
+function loadTexture(path, pixelated, svgPx = SVG_PX) {
   const href = new URL(path, SITE_ROOT).href;
   const load = /\.svg$/i.test(path)
-    ? loadSvgCanvas(href).then((canvas) => new THREE.CanvasTexture(canvas))
+    ? loadSvgCanvas(href, svgPx).then((canvas) => new THREE.CanvasTexture(canvas))
     : textureLoader.loadAsync(href);
   return load.then((tex) => {
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -551,6 +723,7 @@ function makeArtPanel(qrId, w, h, art) {
   ])
     .then(([frameTex, qrTex]) => {
       frameMat.map = frameTex;
+      thickenArt(panel, frameTex);
       frameMat.needsUpdate = true;
       if (qrMat) {
         qrMat.map = qrTex;
@@ -579,7 +752,8 @@ function makeQrosswordPanel(qrId, w) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
 
-  const material = new THREE.MeshBasicMaterial({ map: tex });
+  // transparent: the art's frame is hand-drawn, the square around it clear
+  const material = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, w), material);
   panel.visible = false;
   panel.userData = { qrId };
@@ -591,6 +765,7 @@ function makeQrosswordPanel(qrId, w) {
         tex.needsUpdate = true;
       };
       draw(getFound());
+      thickenArt(panel, tex);
       onFoundChange(draw);
       panel.visible = true;
     })
@@ -599,8 +774,8 @@ function makeQrosswordPanel(qrId, w) {
 }
 
 /* ---- white card panel (artboard frame + QR) --------------------------
-   A w x h white card (square or rounded corners) with a QR at
-   card.qrBox. The QR is the image at card.qr (loaded, like the artwork
+   A w x h card (square or rounded corners; white, or card.color) with a
+   QR at card.qrBox. The QR is the image at card.qr (loaded, like the artwork
    panels) or, with none, the stand-in QR (STAND_IN_QR) — sized so its
    modules, not its quiet zone, fill the box.
    ------------------------------------------------------------------- */
@@ -610,8 +785,9 @@ function makeCardPanel(qrId, w, h, card, seed) {
     r > 0
       ? new THREE.ShapeGeometry(roundedRectShape(w, h, r))
       : new THREE.PlaneGeometry(w, h),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    new THREE.MeshBasicMaterial({ color: card.color ?? 0xffffff }),
   );
+  thickenCard(panel, w, h, r, card.color ?? 0xffffff);
 
   const [qx, qy, qs] = card.qrBox.map((v) => v * MM);
   const qrMat = new THREE.MeshBasicMaterial({ transparent: true });
@@ -695,86 +871,54 @@ function makeLenticular(panel, qr, qrMat, lens) {
     .catch((err) => console.error("obelisk: could not load lenticular views", err));
 }
 
-/* ---- convex polygon clip ---------------------------------------------
-   Clips a convex polygon ([x, y] points) to the half-plane
-   p[axis] >= min (Sutherland-Hodgman, one edge).
-   ------------------------------------------------------------------- */
-function clipPolygon(points, axis, min) {
-  const out = [];
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    const aIn = a[axis] >= min;
-    const bIn = b[axis] >= min;
-    if (aIn) out.push(a);
-    if (aIn !== bIn) {
-      const t = (min - a[axis]) / (b[axis] - a[axis]);
-      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
-    }
-  }
-  return out;
-}
-
-/* ---- face 2's bespoke column -----------------------------------------
-   A 490mm x 1270mm column centred on the face, laid out after the
-   Artboard 5 artwork: the tiles diamonds bleed off the top-left corner,
-   then handdrawn, angle, lens-c (centre view only, for now), color and
-   scam zig-zag right/left down the column. Sizes and positions are the
-   F2_* constants above.
+/* ---- face 2 ------------------------------------------------------------
+   The face's artwork, with the tiles in the top-left corner, then
+   handdrawn, angle, lens, color and scam zig-zagging right/left down
+   the face. Sizes and positions are the F2_* constants above.
    ------------------------------------------------------------------- */
 function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
   const group = new THREE.Group();
 
-  // artboard mm (top-left origin, y down) -> face metres (centre, y up)
-  const toX = (xMm) => xMm * MM - F2_COLUMN_W / 2;
-  const toY = (yMm) => F2_COLUMN_H / 2 - yMm * MM;
-
   const panelColor = (n) => PALETTE[(faceIndex * 2 + n) % PALETTE.length];
   const panelSeed = (n) => (faceIndex + 1) * 1000 + n * 37 + 5;
 
-  // a white caption label, parented to its panel so it hovers/dims with it
-  const addCaption = (panel, [xMm, yMm]) => {
-    const label = new THREE.Mesh(
-      new THREE.PlaneGeometry(F2_CAPTION_W, F2_CAPTION_H),
-      new THREE.MeshBasicMaterial({ color: 0xfdfbf5 }),
-    );
-    label.position.set(
-      toX(xMm) + F2_CAPTION_W / 2 - panel.position.x,
-      toY(yMm) - F2_CAPTION_H / 2 - panel.position.y,
-      0.001,
-    );
-    panel.add(label);
-  };
+  // each tile's rect on the artboard
+  const tileRects = F2_TILES.map(([i, j]) => ({
+    x: F2_TILES_AT[0] + i * (F2_TILE + F2_TILE_GAP),
+    y: F2_TILES_AT[1] + j * (F2_TILE + F2_TILE_GAP),
+    w: F2_TILE,
+    h: F2_TILE,
+  }));
+  const faceArt = makeFaceArt(
+    FACE_ART.face2,
+    [...tileRects, ...faceArtRects([{ captions: F2_TILES_CAPTIONS }, ...F2_PANELS]).filter((r) => "x" in r)],
+    assetLoads,
+  );
+  group.add(faceArt.mesh);
 
-  // tiles (face2-1): one mesh made of every clipped diamond, so the whole
-  // cluster hovers and links as a single panel. Its origin sits at the
-  // anchor diamond's centre.
+  // tiles (face2-1): one mesh made of every tile, so the whole cluster
+  // hovers and links as a single panel. Its origin sits at the top-left
+  // tile's centre.
   {
-    const [ax, ay] = F2_TILE_ANCHOR;
-    const half = F2_TILE / Math.SQRT2; // centre -> vertex
-    const toLocal = ([x, y]) => new THREE.Vector2(x - ax * MM, -(y - ay * MM));
-    const shapes = [];
-    const centres = []; // each diamond's centre, local (y up)
-    for (const [i, j] of F2_TILES) {
-      // centre in artboard metres (y down)
-      const cx = ax * MM + i * F2_TILE_PITCH;
-      const cy = ay * MM + j * F2_TILE_PITCH;
-      let pts = [
-        [cx, cy - half],
-        [cx + half, cy],
-        [cx, cy + half],
-        [cx - half, cy],
-      ];
-      pts = clipPolygon(clipPolygon(pts, 0, 0), 1, 0);
-      if (pts.length < 3) continue;
-      shapes.push(new THREE.Shape(pts.map(toLocal)));
-      centres.push(toLocal([cx, cy]));
-    }
+    const half = (F2_TILE / 2) * MM;
+    const ox = toFaceX(F2_TILES_AT[0] + F2_TILE / 2);
+    const oy = toFaceY(F2_TILES_AT[1] + F2_TILE / 2);
+    // each tile's centre, local (y up)
+    const centres = tileRects.map(
+      (r) => new THREE.Vector2(toFaceX(r.x + r.w / 2) - ox, toFaceY(r.y + r.h / 2) - oy),
+    );
+    const shapes = centres.map(
+      (c) =>
+        new THREE.Shape([
+          new THREE.Vector2(c.x - half, c.y - half),
+          new THREE.Vector2(c.x + half, c.y - half),
+          new THREE.Vector2(c.x + half, c.y + half),
+          new THREE.Vector2(c.x - half, c.y + half),
+        ]),
+    );
 
-    // map the tile art onto each diamond: its bottom, right, top and left
-    // vertices take the art's corners, so the art turns 45deg with it
-    // (and a clipped diamond shows the matching part of the art). The
-    // diamonds don't touch, so a vertex belongs to its nearest centre.
+    // each tile shows the whole art: map its corners to the art's. The
+    // tiles don't touch, so a vertex belongs to its nearest centre.
     const geometry = new THREE.ShapeGeometry(shapes);
     const pos = geometry.attributes.position;
     const uv = geometry.attributes.uv;
@@ -784,36 +928,35 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       let c = centres[0];
       for (const d of centres)
         if (Math.hypot(x - d.x, y - d.y) < Math.hypot(x - c.x, y - c.y)) c = d;
-      const dx = x - c.x;
-      const dy = y - c.y;
-      uv.setXY(v, 0.5 + (dx + dy) / (2 * half), 0.5 + (dy - dx) / (2 * half));
+      uv.setXY(v, 0.5 + (x - c.x) / (2 * half), 0.5 + (y - c.y) / (2 * half));
     }
 
     // unlit, like the artwork panels, so the art keeps its colours
     const tileMat = new THREE.MeshBasicMaterial({ transparent: true });
     const panel = new THREE.Mesh(geometry, tileMat);
-    panel.position.set(toX(ax), toY(ay), 0.006);
+    panel.position.set(ox, oy, PANEL_Z);
     panel.visible = false;
     assetLoads.push(
       loadTexture(F2_TILE_ART)
         .then((tex) => {
           tileMat.map = tex;
+          thickenArt(panel, tex);
           tileMat.needsUpdate = true;
           panel.visible = true;
         })
         .catch((err) => console.error("obelisk: could not load tile art", err)),
     );
-    addCaption(panel, F2_TILES_CAPTION);
     panel.userData = {
       qrId: `face${faceIndex + 1}-1`,
       color: new THREE.Color(panelColor(0)),
     };
+    addCaptions(panel, F2_TILES_CAPTIONS, faceArt.full, assetLoads);
     group.add(panel);
     qrTargets.push(panel);
   }
 
   // the rectangular panels
-  for (const { n, x, y, w, h, caption, prism, art, card, qrossword } of F2_PANELS) {
+  for (const { n, x, y, w, h, prism, art, card, qrossword, captions } of F2_PANELS) {
     const qrId = `face${faceIndex + 1}-${n + 1}`;
     let panel;
     if (card) {
@@ -827,21 +970,21 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
           return false;
         });
       }
-      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+      panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     } else if (qrossword) {
       const built = makeQrosswordPanel(qrId, w * MM);
       panel = built.panel;
       assetLoads.push(built.ready);
-      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+      panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     } else if (art) {
       const built = makeArtPanel(qrId, w * MM, h * MM, art);
       panel = built.panel;
       assetLoads.push(built.ready);
-      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+      panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     } else if (prism) {
       panel = buildPerspectivePrism();
       panel.userData.qrId = qrId;
-      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.001);
+      panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), 0.001);
     } else {
       panel = makePanel(
         qrId,
@@ -852,24 +995,37 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
         panelSeed(n),
         n % 2 === 0,
       );
-      panel.position.set(toX(x + w / 2), toY(y + h / 2), 0.006);
+      panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     }
-    if (caption) addCaption(panel, caption);
+    addCaptions(panel, captions, faceArt.full, assetLoads);
     group.add(panel);
     qrTargets.push(panel);
   }
 
-  // credits text, printed straight onto the face (not a link)
-  const credits = makeCredits(F2_CREDITS);
-  credits.mesh.position.set(
-    toX(F2_CREDITS.x + F2_CREDITS.w / 2),
-    toY(F2_CREDITS.y + F2_CREDITS.h / 2),
-    0.004,
-  );
-  group.add(credits.mesh);
-  assetLoads.push(credits.ready);
-
   return group;
+}
+
+/* ---- face 3's full-face artwork --------------------------------------
+   F3_ART on a plane exactly the face's size (SIDE x SHAFT_H), its edges
+   on the shaft's. Unlit, like the artwork panels, so it keeps its
+   colours. Not a link; hidden until it loads.
+   ------------------------------------------------------------------- */
+function layoutFace3(assetLoads) {
+  const material = new THREE.MeshBasicMaterial(); // opaque, as makeFaceArt's
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(SIDE, SHAFT_H), material);
+  mesh.position.z = FACE_Z;
+  mesh.visible = false;
+  mesh.userData.ignoreRaycast = true;
+  assetLoads.push(
+    loadTexture(F3_ART, false, F3_ART_PX)
+      .then((tex) => {
+        material.map = tex;
+        material.needsUpdate = true;
+        mesh.visible = true;
+      })
+      .catch((err) => console.error("obelisk: could not load face 3 art", err)),
+  );
+  return mesh;
 }
 
 /* ---- one shaft face -------------------------------------------------- */
@@ -884,6 +1040,8 @@ function makeFace(faceIndex, qrTargets, assetLoads, updaters) {
     group.add(layoutFace1(faceIndex, qrTargets, assetLoads));
   } else if (layout.type === "face2") {
     group.add(layoutFace2(faceIndex, qrTargets, assetLoads, updaters));
+  } else if (layout.type === "face3") {
+    group.add(layoutFace3(assetLoads));
   }
   // "blank" -> nothing added; the bare shaft colour shows
 
@@ -961,7 +1119,7 @@ function makeFloorTexture() {
 
   draw(getPattern());
   onPatternChange(draw);
-  const tileArtReady = loadSvgCanvas(new URL(F2_TILE_ART, SITE_ROOT).href)
+  const tileArtReady = loadSvgCanvas(new URL(F2_TILE_ART, SITE_ROOT).href, SVG_PX)
     .then((art) => {
       tileArt = art;
       draw(getPattern());
@@ -1041,15 +1199,9 @@ export function buildObelisk() {
   // each returns true while animating
   const updaters = [];
 
-  const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: BODY_COLOR,
-    roughness: 0.72,
-    metalness: 0.04,
-    // a 3-segment CylinderGeometry has smooth (radial) normals, shading
-    // the shaft like a rounded tube; flat-shade it so each face is lit
-    // evenly and the corners read as edges
-    flatShading: true,
-  });
+  // unlit, like the faces' artwork, so the shaft's top and edges are the
+  // artwork's exact cyan and the art sits on it seamlessly
+  const bodyMaterial = new THREE.MeshBasicMaterial({ color: BODY_COLOR });
 
   // triangular shaft, flat-topped
   const shaft = triPrism(R, R, SHAFT_H, bodyMaterial);
@@ -1110,6 +1262,11 @@ export function setPanelEnabled(panel, enabled) {
   panel.userData.disabled = !enabled;
   panel.traverse((obj) => {
     if (!obj.material) return;
+    // a thickness edge would stack its dimmed layers back to full colour
+    if (obj.userData.edge) {
+      obj.visible = enabled;
+      return;
+    }
     obj.material.transparent = true;
     obj.material.opacity = enabled ? 1 : 0.22;
   });

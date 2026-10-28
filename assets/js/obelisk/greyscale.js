@@ -2,10 +2,12 @@
    greyscale.js — the site-wide black-and-white filter that the QOLORFUL
    modal's slider (content/color.js) sets.
 
-   The level, 0 (colour) .. 1 (black and white), is kept in localStorage,
+   The level, 0..1, is the slider's position. It is kept in localStorage,
    so it holds when the modal closes, across the slug pages and over a
-   reload; main.js applies it on load. It is drawn by the
-   html.is-greyscale rule in assets/css/base.css.
+   reload; main.js applies it on load. Up to GREY_END the site fades from
+   colour to greys, drawn by the html.is-greyscale rule in
+   assets/css/base.css; past it the site stays grey, and only the modal's
+   QR goes on, from greys to pure black and white (binarisation()).
 
    A slider drag sets the level many times a frame, so setGreyscale()
    applies it once per animation frame and stores it SAVE_DELAY ms after
@@ -13,12 +15,15 @@
 
    Exports:
      getGreyscale()      the level, 0..1
+     binarisation(t)     how far level t has taken the modal's QR from
+                         greys to black and white, 0..1
      setGreyscale(t)     set, apply and remember the level
      applyGreyscale()    apply the remembered level (on page load)
    ========================================================================== */
 
 const STORAGE_KEY = "coded-life:greyscale";
 const SAVE_DELAY = 300; // ms
+const GREY_END = 0.5; // the level at which the colour is all gone
 
 let level = read();
 let applyFrame = 0;
@@ -38,12 +43,16 @@ function read() {
 function apply(t) {
   const root = document.documentElement;
   root.classList.toggle("is-greyscale", t > 0);
-  if (t > 0) root.style.setProperty("--greyscale", String(t));
+  if (t > 0) root.style.setProperty("--greyscale", String(Math.min(t / GREY_END, 1)));
   else root.style.removeProperty("--greyscale");
 }
 
 export function getGreyscale() {
   return level;
+}
+
+export function binarisation(t) {
+  return Math.max(0, (t - GREY_END) / (1 - GREY_END));
 }
 
 export function setGreyscale(t) {

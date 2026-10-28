@@ -9,7 +9,7 @@
 
 const copy = {
   subtitle: "What makes a QR code scannable?",
-  title: "Contrast & readability",
+  title: "Necessary Contrast",
   body: [
     "A scanner needs enough contrast between light and dark modules to read a code at all. Placeholder copy for this panel.",
   ],

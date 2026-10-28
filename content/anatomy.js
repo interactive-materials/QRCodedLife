@@ -13,7 +13,7 @@ const img = (name) => new URL(`../anatomy/assets/${name}`, import.meta.url).href
 
 const copy = {
   subtitle: "What is in a QR code?",
-  title: "Anatomy of a QR code",
+  title: "Clearly Defined Key Components",
   intro:
     "The QR (Quick Response) Code is a two-dimensional (2D) machine-readable codes which are made up of dark and light modules arranged into a square. Often scanned using a camera, the QR code is made up of multiple parts that makes it easy for us to scan a QR code from any angle and orientation.",
     // "The QR code we use everyday is made up of multiple parts that makes it easy for us to scan a QR code from any angle and any orientation.",

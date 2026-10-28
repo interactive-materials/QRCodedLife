@@ -13,8 +13,9 @@
    The canvas draws the QOLORFUL QR code with a vertical slider to its
    right: at the top everything shows in colour, and dragging down fades
    the whole site — the obelisk, the HUD, this modal and its QR — to
-   black and white, with a CSS grayscale() filter (see
-   assets/js/obelisk/greyscale.js). The level stays where it's left: after
+   greys by halfway, with a CSS grayscale() filter (see
+   assets/js/obelisk/greyscale.js); from there to the bottom only the QR
+   goes on, each module from its grey to the black or white it stands for. The level stays where it's left: after
    the modal closes, on other pages and over a reload.
 
    The QR is drawn module by module from the grid in QOLORful.svg (see
@@ -22,12 +23,12 @@
    ========================================================================== */
 
 import { QrCode } from "../assets/js/obelisk/qr-code.js";
-import { getGreyscale, setGreyscale } from "../assets/js/obelisk/greyscale.js";
+import { getGreyscale, setGreyscale, binarisation } from "../assets/js/obelisk/greyscale.js";
 
 const QR_SRC = new URL("../color/assets/QOLORful.svg", import.meta.url).href;
 
 const copy = {
-  title: "QOLORFUL",
+  title: "Qolorful",
   stageLabel: "The QOLORFUL QR code, in colour",
   sliderLabel: "From colour to black and white",
   body: [
@@ -91,8 +92,29 @@ async function readColourQr(url) {
   for (const m of qr.modules) {
     const colour = colours[m.row + quiet][m.col + quiet];
     m.style = { dark: colour, light: colour };
+    m.colour = colour;
+    m.inked = DARK_COLOURS.includes(colour); // black in black and white
   }
   return qr;
+}
+
+/* ---- black and white ----------------------------------------------------
+   Binarised by b (0..1): each module's grey — its colour through the
+   weights CSS grayscale() uses, so b = 0 matches the filtered colour —
+   moved b of the way to black (an inked module) or white. At 0 the
+   modules keep their own colours, for the site's filter to grey.
+   ------------------------------------------------------------------------ */
+function binarise(qr, b) {
+  for (const m of qr.modules) {
+    let colour = m.colour;
+    if (b > 0) {
+      const [r, g, bl] = [1, 3, 5].map((i) => parseInt(m.colour.slice(i, i + 2), 16));
+      const grey = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+      const v = Math.round(grey + ((m.inked ? 0 : 255) - grey) * b);
+      colour = `rgb(${v}, ${v}, ${v})`;
+    }
+    m.style = { dark: colour, light: colour };
+  }
 }
 
 // read once, when this module loads; without it the canvas shows only
@@ -156,9 +178,10 @@ export function mount(root) {
   const ctx = canvas.getContext("2d");
   // dragging the slider on a touch screen mustn't pan or zoom instead
   canvas.style.touchAction = "none";
-  // the QR drawn once per size: it doesn't change, the filter greys it
+  // the QR drawn once per size and binarisation (the filter greys it)
   const qrLayer = document.createElement("canvas");
   const qrCtx = qrLayer.getContext("2d");
+  let qrLayerKey = "";
 
   let width = 0;
   let height = 0;
@@ -195,8 +218,13 @@ export function mount(root) {
 
     const px = Math.round(qr.size * dpr);
     if (qrCode && px > 0) {
-      if (qrLayer.width !== px) {
-        qrLayer.width = qrLayer.height = px;
+      const b = binarisation(value());
+      const key = `${px} ${b}`;
+      if (qrLayerKey !== key) {
+        qrLayerKey = key;
+        if (qrLayer.width !== px) qrLayer.width = qrLayer.height = px;
+        else qrCtx.clearRect(0, 0, px, px);
+        binarise(qrCode, b);
         qrCode.draw(qrCtx, 0, 0, px, 1);
       }
       const x = Math.round(qr.x * dpr) / dpr;
@@ -208,7 +236,8 @@ export function mount(root) {
     const thumbY = track.y0 + (track.y1 - track.y0) * value();
     const thumbR = THUMB_R * r;
 
-    // track: filled from the top down to the thumb
+    // track: filled from the thumb down to the bottom, so all filled with
+    // the thumb at the top (full colour)
     ctx.lineCap = "round";
     ctx.lineWidth = TRACK_W;
     ctx.beginPath();
@@ -217,8 +246,8 @@ export function mount(root) {
     ctx.strokeStyle = css("--border");
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(track.x, track.y0);
-    ctx.lineTo(track.x, thumbY);
+    ctx.moveTo(track.x, thumbY);
+    ctx.lineTo(track.x, track.y1);
     ctx.strokeStyle = fg;
     ctx.stroke();
 

@@ -32,7 +32,7 @@ import {
 } from "../assets/js/obelisk/qrossword.js";
 
 const copy = {
-  title: "QROSSWORD",
+  title: "Qrossword",
   stageLabel: "QROSSWORD, a hand-drawn QR code that is also a word search",
   listHeading: "Find the MRT stations:",
   body: [

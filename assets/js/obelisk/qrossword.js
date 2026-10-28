@@ -20,7 +20,8 @@
                            function that stops it
    ========================================================================== */
 
-const QR_SRC = new URL("../../../handdrawn/assets/qrossword.svg", import.meta.url).href;
+const QR_SRC = new URL("../../../handdrawn/assets/[CORRECTED] QROSSWORD.svg", import.meta.url).href;
+const BOX_SRC = new URL("../../../handdrawn/assets/qrossword.svg", import.meta.url).href;
 const STORAGE_KEY = "coded-life:qrossword-found";
 
 /* ---- words --------------------------------------------------------------
@@ -48,36 +49,57 @@ export const WORDS = [
 ];
 
 /* ---- art ----------------------------------------------------------------
-   qrossword.svg is the QR drawn in black letters on white, with every
-   word boxed in red (stroke BOX_STROKE): a <rect>, maybe rotated, or a
-   <path> of M / H / V / L. readQrossword() takes the boxes out — each
-   one's axis-aligned bounds, in the SVG's units — and returns the rest as
-   an image, so the QR starts with none of them showing; drawQrossword()
-   draws back the found ones, BOX_LINE of the SVG's units wide, as in the
-   SVG.
+   The art is QR_SRC: the QR drawn in black letters, in a hand-drawn white
+   frame. Its word boxes still come from BOX_SRC, the earlier qrossword.svg
+   — the same letters with every word boxed in red (stroke BOX_STROKE): a
+   <rect>, maybe rotated, or a <path> of M / H / V / L. readQrossword()
+   takes each box's axis-aligned bounds and moves it onto the art with
+   BOX_TO_ART (the letters are the same, scaled and shifted: fitted on all
+   497 of them, to within half a unit); drawQrossword() draws the found
+   ones, BOX_LINE of the art's units wide, as in BOX_SRC.
+
+   The art is a little taller than wide; it's centred in a square of its
+   height, and the regions are in that square's units.
    ------------------------------------------------------------------------ */
 export const BOX_STROKE = "#ff5555";
-const BOX_LINE = 3; // SVG units
+const BOX_TO_ART = { s: 0.6038, x: 28.875, y: 33.368 }; // BOX_SRC -> QR_SRC units
+const BOX_LINE = 3 * BOX_TO_ART.s; // BOX_SRC's 3 units
 
 let qrosswordLoad = null;
 export function loadQrossword() {
-  qrosswordLoad ??= readQrossword(QR_SRC);
+  qrosswordLoad ??= readQrossword(QR_SRC, BOX_SRC);
   return qrosswordLoad;
 }
 
-async function readQrossword(url) {
+async function readSvg(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${url}`);
-  const svg = new DOMParser().parseFromString(await res.text(), "image/svg+xml").documentElement;
-  const view = svg.viewBox.baseVal;
+  return res.text();
+}
 
-  const boxes = [...svg.querySelectorAll("[stroke]")].filter(
+async function readQrossword(artUrl, boxUrl) {
+  const [artText, boxText] = await Promise.all([readSvg(artUrl), readSvg(boxUrl)]);
+  const svg = new DOMParser().parseFromString(artText, "image/svg+xml").documentElement;
+  const view = svg.viewBox.baseVal;
+  const side = Math.max(view.width, view.height);
+  const artBox = {
+    x: (side - view.width) / 2,
+    y: (side - view.height) / 2,
+    w: view.width,
+    h: view.height,
+  };
+
+  const boxDoc = new DOMParser().parseFromString(boxText, "image/svg+xml").documentElement;
+  const boxes = [...boxDoc.querySelectorAll("[stroke]")].filter(
     (el) => el.getAttribute("stroke").toLowerCase() === BOX_STROKE,
   );
-  const regions = boxes.map((el) => bounds(el.localName === "rect" ? rectCorners(el) : pathPoints(el)));
-  boxes.forEach((el) => el.remove());
+  const { s, x: tx, y: ty } = BOX_TO_ART;
+  const regions = boxes.map((el) => {
+    const b = bounds(el.localName === "rect" ? rectCorners(el) : pathPoints(el));
+    return { x: artBox.x + tx + b.x * s, y: artBox.y + ty + b.y * s, w: b.w * s, h: b.h * s };
+  });
 
-  const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
+  const blob = new Blob([artText], { type: "image/svg+xml" });
   const src = URL.createObjectURL(blob);
   const image = new Image();
   image.src = src;
@@ -86,7 +108,7 @@ async function readQrossword(url) {
   } finally {
     URL.revokeObjectURL(src);
   }
-  return { image, width: view.width, height: view.height, regions };
+  return { image, width: side, height: side, artBox, regions };
 }
 
 // a <rect>'s four corners, through its rotate(a cx cy), if any
@@ -130,12 +152,14 @@ function bounds(points) {
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
+// the art brings its own white frame, so only the frame's shape is drawn:
+// the square around it is left clear
 export function drawQrossword(ctx, qrossword, x, y, size, found) {
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(x, y, size, size);
-  ctx.drawImage(qrossword.image, x, y, size, size);
-
   const s = size / qrossword.width;
+  const a = qrossword.artBox;
+  ctx.clearRect(x, y, size, size);
+  ctx.drawImage(qrossword.image, x + a.x * s, y + a.y * s, a.w * s, a.h * s);
+
   ctx.lineWidth = Math.max(1, BOX_LINE * s);
   ctx.strokeStyle = BOX_STROKE;
   WORDS.forEach(({ region }, i) => {
