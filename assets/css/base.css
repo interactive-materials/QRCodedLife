@@ -381,6 +381,111 @@ dialog.modal[open]::backdrop {
   touch-action: manipulation;
 }
 
+/* LENTIQR's stage (content/lentiqr.js), in HTML: the QR on a white card,
+   as big as fits, its emoji over its centre; under it, the previous
+   button, the emoji and the next button */
+.lens {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: var(--modal-gap) 0;
+}
+
+.lens__qr {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* the white round the QR's own 1.5-module margin makes its quiet zone up
+   to about 4 modules, so it scans on the navy */
+.lens__card {
+  height: 100%;
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* inset from the card's edge by a share of the card itself (padding %
+   would be of the stage's width) */
+.lens__code {
+  position: relative;
+  width: 88%;
+  height: 88%;
+}
+
+.lens__code img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.lens__code .lens__emoji {
+  position: absolute;
+  top: calc((100% - var(--emoji-size)) / 2);
+  left: calc((100% - var(--emoji-size)) / 2);
+  width: var(--emoji-size);
+  height: var(--emoji-size);
+  image-rendering: auto;
+}
+
+.lens__controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lens__pick {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.lens__step {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.lens__step:hover,
+.lens__step:focus-visible {
+  border-color: var(--fg);
+  background: var(--bg);
+}
+
+.lens__step svg {
+  width: 0.625rem;
+  height: 0.625rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* read out, never shown */
+.lens__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .modal__part {
   margin: 1.5rem 0 var(--modal-text-gap);
   font-size: 1rem;

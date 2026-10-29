@@ -16,10 +16,17 @@
      E(0,H,-R/2)    F(0,H,R/2)
    Faces: front A-B-F-E, back D-C-F-E, left hip A-D-E, right hip B-C-F.
 
-   buildPerspectivePrism() returns a THREE.Group in metres, oriented for an
-   obelisk face: base on the face's z=0 plane, height along +z, width
-   along x, ridge running up/down (y). Footprint W x L = 210mm x 160mm.
-   It is always clickable, from any angle.
+   buildPerspectivePrism(shape) returns a THREE.Group in metres, oriented
+   for an obelisk face: base on the face's z=0 plane, height along +z,
+   width along x, ridge running up/down (y). Footprint W x L = 210mm x
+   160mm. It is always clickable, from any angle. shape overrides PRISM's
+   R, H and viewDist (see prism-shape.js, which the angle modal sets);
+   reshapePerspectivePrism(group, shape) rebuilds it to a new one.
+
+   updateScanCue(group, camera, dt) shows the easter egg: white corner
+   brackets hovering over the prism while the camera is where its QR
+   resolves (see the scan cue, below). Call it every frame; true while it
+   animates.
    ========================================================================== */
 
 import * as THREE from "three";
@@ -354,8 +361,126 @@ function faceMaterial(params) {
   });
 }
 
+/* ---- scan cue -----------------------------------------------------------
+   The easter egg: white corner brackets, like a phone camera's QR finder,
+   hovering over the prism once the camera is where its graphic resolves
+   into a square. That's within SCAN_TOLERANCE of revealCameraHeight()
+   from the base, and off the axis through the ridge's middle by no more
+   than SCAN_TOLERANCE of that height (about 5.7deg), with the prism on
+   screen. The brackets sit level with the QR's corners on the slopes
+   (so a camera a little off the point still sees them on the corners),
+   lifted CUE_LIFT of the way from there toward the point, sized to frame
+   the QR as it's seen from there with CUE_MARGIN to spare, a soft shadow
+   under them so they show over the white prism, and breathe gently while
+   shown.
+   ------------------------------------------------------------------- */
+const SCAN_TOLERANCE = 0.1;
+const CUE_LIFT = 0.08;
+const CUE_MARGIN = 1.15; // the frame's side, as a multiple of the QR's
+const CUE_ARM = 0.26; // a bracket's arm, as a share of the frame's side
+const CUE_LINE = 0.03; // its thickness, as a share of the frame's side
+const CUE_SHADOW = 0.35; // the shadow's opacity, at full
+const CUE_FADE = 0.25; // seconds to fade fully in or out
+const CUE_BREATHE = 0.025; // the frame's swell, either way
+const CUE_PERIOD = 1.8; // seconds per breath
+
+// four L's in the XZ plane, their outer corners at (+-half, +-half)
+function bracketsGeometry(half, arm, line) {
+  const pos = [];
+  const rect = (x0, z0, x1, z1) =>
+    pos.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z0, x1, 0, z1, x0, 0, z1);
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) {
+      const x = sx * half;
+      const z = sz * half;
+      rect(x, z, x - sx * arm, z - sz * line); // along x
+      rect(x, z - sz * line, x - sx * line, z - sz * arm); // along z
+    }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  return geo;
+}
+
+function cueMesh(geometry, color, renderOrder) {
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthTest: false, // always over the prism it frames
+      depthWrite: false,
+    }),
+  );
+  mesh.renderOrder = renderOrder;
+  // never picked, zoomed at or collided with
+  mesh.userData.ignoreRaycast = true;
+  mesh.userData.noCollide = true;
+  return mesh;
+}
+
+// the brackets, in generator space (cm); hidden until updateScanCue
+// shows them
+function buildScanCue(s, fc, sizeCm, camHeight) {
+  // the QR's corners, all at one height (the prism is symmetric), on the
+  // front and back slopes
+  const corner = invertFaceProjection(fc.front, sizeCm / 2, sizeCm / 2, camHeight);
+  const cornerY = corner ? corner.t * s.H : s.H;
+  const lift = cornerY + CUE_LIFT * (camHeight - cornerY);
+  // as the reveal camera sees it, the frame at `lift` is this much smaller
+  // than on the base, where the QR's size is measured
+  const side = sizeCm * CUE_MARGIN * ((camHeight - lift) / camHeight);
+  const geo = bracketsGeometry(side / 2, CUE_ARM * side, CUE_LINE * side);
+  const cue = new THREE.Group();
+  cue.position.y = lift;
+  cue.visible = false;
+  // the shadow: the same brackets, nudged down-right as seen from the
+  // reveal camera (screen-right is +X, screen-down +Z)
+  const shadow = cueMesh(geo, 0x000000, 10);
+  shadow.position.set(0.5, -0.01, 0.5).multiplyScalar(CUE_LINE * side);
+  cue.add(shadow, cueMesh(geo, 0xffffff, 11));
+  return cue;
+}
+
+const camLocal = new THREE.Vector3();
+const prismNdc = new THREE.Vector3();
+
+export function updateScanCue(group, camera, dt) {
+  const { shape, inner, cue } = group.userData;
+  const camHeight = revealCameraHeight(shape);
+  // the camera in generator space: y its height over the base, x / z
+  // its offset from the axis
+  inner.worldToLocal(camLocal.copy(camera.position));
+  group.getWorldPosition(prismNdc).project(camera);
+  const aligned =
+    qrSizeCm(shape) > 0 &&
+    Math.abs(camLocal.y - camHeight) <= SCAN_TOLERANCE * camHeight &&
+    Math.hypot(camLocal.x, camLocal.z) <= SCAN_TOLERANCE * camHeight &&
+    Math.abs(prismNdc.x) <= 1 &&
+    Math.abs(prismNdc.y) <= 1 &&
+    prismNdc.z < 1;
+
+  const level = group.userData.cueLevel;
+  const next = THREE.MathUtils.clamp(level + (aligned ? dt : -dt) / CUE_FADE, 0, 1);
+  group.userData.cueLevel = next;
+  if (next === 0) {
+    cue.visible = false;
+    group.userData.cueTime = 0;
+    return level !== 0;
+  }
+  group.userData.cueTime += dt;
+  const swell = 1 + CUE_BREATHE * Math.sin((2 * Math.PI * group.userData.cueTime) / CUE_PERIOD);
+  cue.scale.set(swell, 1, swell);
+  cue.visible = true;
+  const [shadow, brackets] = cue.children;
+  shadow.material.opacity = CUE_SHADOW * next;
+  brackets.material.opacity = next;
+  return true; // shown: it breathes
+}
+
 /* ---- public builder ------------------------------------------------- */
-export function buildPerspectivePrism(s = PRISM) {
+function buildInner(s) {
   const fc = faceCornerSets(computeVertices(s));
   const sizeCm = qrSizeCm(s);
   const camHeight = revealCameraHeight(s);
@@ -377,9 +502,49 @@ export function buildPerspectivePrism(s = PRISM) {
     const mat = faceMaterial({ color: s.prismColor, emissive: s.prismColor });
     inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
+  const cue = buildScanCue(s, fc, sizeCm, camHeight);
+  inner.add(cue);
+  inner.userData.cue = cue;
+  return inner;
+}
 
-  const group = new THREE.Group();
+// frees an inner's GPU resources (its baked textures among them)
+function disposeInner(inner) {
+  inner.traverse((obj) => {
+    if (!obj.isMesh) return;
+    obj.geometry.dispose();
+    if (obj.material.map) obj.material.map.dispose();
+    obj.material.dispose();
+  });
+}
+
+function setInner(group, shape) {
+  const old = group.userData.inner;
+  if (old) {
+    group.remove(old);
+    disposeInner(old);
+  }
+  const inner = buildInner(shape);
   group.add(inner);
+  group.userData.shape = shape;
+  group.userData.inner = inner;
+  group.userData.cue = inner.userData.cue;
+}
+
+export function buildPerspectivePrism(shape = {}) {
+  const group = new THREE.Group();
   group.userData.steadyGlow = true; // setPanelHover leaves the glow alone
+  group.userData.cueLevel = 0;
+  group.userData.cueTime = 0;
+  setInner(group, { ...PRISM, ...shape });
   return group;
+}
+
+// the rest of the group (captions on the obelisk) stays as it is
+export function reshapePerspectivePrism(group, shape) {
+  setInner(group, { ...group.userData.shape, ...shape });
+}
+
+export function disposePerspectivePrism(group) {
+  if (group.userData.inner) disposeInner(group.userData.inner);
 }

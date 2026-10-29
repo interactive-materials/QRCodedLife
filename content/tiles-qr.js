@@ -113,14 +113,17 @@ export default function render({ titleId }) {
 /* ---- canvas -------------------------------------------------------------
    Layout, in CSS px. The canvas splits into two sections, as in color.js
    and handdrawn.js: the grid's, the left QR_SECTION of its width, and the
-   panel's, the rest. The grid is a square centred in its section, as big
-   as fits with QR_MARGIN all round — the same size and place as the QR in
-   the other two. In the panel: the heading (wrapped to the panel's
-   width) where it would top a stack of it, the tile and the button,
-   PANEL_GAP apart and centred in the panel; the Remove all button,
-   centred across the panel, its bottom level with the grid's; and the
-   tile (a grid square's size, or less to fit), centred across the panel
-   and between the two, at least PANEL_GAP from each.
+   panel's, the rest. The grid is a square as big as fits in its section
+   with QR_MARGIN all round, at its left — the same size and place as the
+   QR in the other two. The panel's content is a stack of the heading
+   (wrapped to the panel's width), the tile and the button, PANEL_GAP
+   apart, at the canvas's right, QR_MARGIN in, so the two sides' margins
+   match; any room to spare goes between the grid and the stack. In it:
+   the heading at its left, where it would top the stack centred down the
+   canvas; the Remove all button, centred across the stack, its bottom
+   level with the grid's; and the tile (a grid square's size, or less to
+   fit), centred across the stack and between the two, at least
+   PANEL_GAP from each.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the grid's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the grid, inside its section (rem)
@@ -179,12 +182,12 @@ export function mount(root) {
     fontPx = FONT_SIZE * r;
 
     const section = width * QR_SECTION;
-    const size = Math.max(0, Math.min(height, section) - 2 * QR_MARGIN * r);
-    grid = { x: (section - size) / 2, y: (height - size) / 2, size, cell: size / PATTERN_SIZE };
+    const margin = QR_MARGIN * r;
+    const size = Math.max(0, Math.min(height, section) - 2 * margin);
+    grid = { x: margin, y: (height - size) / 2, size, cell: size / PATTERN_SIZE };
 
-    // the panel: x centres a width in it
-    const room = Math.max(0, width - section);
-    const centred = (w) => section + (room - w) / 2;
+    // the panel: from the grid's section to QR_MARGIN short of the right
+    const room = Math.max(0, width - section - margin);
     const gap = PANEL_GAP * r;
     const lineH = fontPx * LINE_HEIGHT;
 
@@ -196,10 +199,12 @@ export function mount(root) {
     const buttonH = BUTTON_H * r;
 
     // the heading: atop a stack of it, the tile and the button, the stack
-    // centred in the panel and the heading at its left
+    // at the panel's right and the heading at its left; x centres a width
+    // across the stack
     const headingH = lines.length * lineH;
     const stackTile = Math.max(0, Math.min(grid.cell, room, height - headingH - buttonH - 2 * gap));
     const stackW = Math.min(room, Math.max(headingW, stackTile, buttonW));
+    const centred = (w) => width - margin - (stackW + w) / 2;
     const stackH = headingH + gap + stackTile + gap + buttonH;
     const headingY = (height - stackH) / 2;
     headingLines = lines.map((text, i) => ({
@@ -214,7 +219,7 @@ export function mount(root) {
     // the tile, between them
     const top = headingY + headingH + gap;
     const bottom = button.y - gap;
-    const tileSize = Math.max(0, Math.min(grid.cell, room, bottom - top));
+    const tileSize = Math.max(0, Math.min(grid.cell, stackW, bottom - top));
     source = { x: centred(tileSize), y: (top + bottom - tileSize) / 2, size: tileSize };
   }
 

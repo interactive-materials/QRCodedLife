@@ -1,7 +1,6 @@
-// Modal for /lens-r/ — see content/modal-layout.js for how it's laid out.
-export default {
-  eyebrow: "Lenticular · right",
-  title: "Lentiqr",
-  body: "Viewed from the right, the panel shifts again to its third and final image. Placeholder copy.",
-  image: null,
-};
+// Modal for /lens-r/ — the lenticular QR's view from the right; see content/lentiqr.js.
+import { lensModal } from "./lentiqr.js";
+
+const { render, mount } = lensModal(2);
+export default render;
+export { mount };

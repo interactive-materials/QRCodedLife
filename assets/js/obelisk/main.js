@@ -24,6 +24,8 @@ import { pageRoutes, contentForSlug } from "./routes.js";
 import { applyGreyscale } from "./greyscale.js";
 import { onPatternChange } from "./floor-pattern.js";
 import { onFoundChange } from "./qrossword.js";
+import { onShapeChange } from "./prism-shape.js";
+import { onChoiceChange as onLensChoiceChange } from "./lens-emoji.js";
 
 // the black-and-white level the QOLORFUL slider last left the site at
 applyGreyscale();
@@ -39,8 +41,8 @@ let renderRequested = false;
 let lastTick = 0;
 
 // how close the camera may get to its orbit target (m) when zooming in on
-// a point of the obelisk — close enough to reach the angle prism's 150mm
-// scan point. Zooming at empty space stops at farMinDist instead.
+// a point of the obelisk — close enough to reach the angle prism's scan
+// point at its nearest (see prism-shape.js). Zooming at empty space stops at farMinDist instead.
 const MIN_ZOOM_DIST = 0.06;
 let farMinDist = 1;
 // the starting view's distance from the obelisk's centre (m), set by
@@ -54,7 +56,7 @@ const SURFACE_MARGIN = 0.02;
 const MIN_ORBIT_DIST = MIN_ZOOM_DIST / 2;
 // field of view widens from FAR_FOV to a phone-camera-like CLOSE_FOV as
 // the camera closes in on its target (between FOV_RANGE, m), so the angle
-// prism fits on screen from its 150mm scan point
+// prism fits on screen from its scan point
 const FAR_FOV = 35;
 const CLOSE_FOV = 70;
 const FOV_RANGE = [0.15, 0.8];
@@ -163,10 +165,13 @@ function init() {
   // text is redrawn once its web font arrives, and image panels appear
   // once loaded
   obelisk.assetsReady.then(requestRender);
-  // the floor and the QROSSWORD panel redraw themselves when the tiles
-  // and handdrawn modals change them
+  // the floor, the QROSSWORD panel, the angle prism and the lenticular
+  // panel redraw themselves when the tiles, handdrawn, angle and lens
+  // modals change them
   onPatternChange(requestRender);
   onFoundChange(requestRender);
+  onShapeChange(requestRender);
+  onLensChoiceChange(requestRender);
 
   initModal();
   initAbout();

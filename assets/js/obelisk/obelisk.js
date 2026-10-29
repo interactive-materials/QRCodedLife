@@ -12,7 +12,8 @@
      Face 2 — to the right of face 1 — the artwork ("What Else Can A
                QR Code Be?", captions, credits), with 6 QR codes on it,
                zig-zagging top to bottom: tiles, handdrawn, angle (a 3D
-               perspective QR prism — see perspective-prism.js), lens (a
+               perspective QR prism — see perspective-prism.js — shaped
+               in the angle modal; see prism-shape.js), lens (a
                lenticular QR: lens-l / lens-c / lens-r by viewing angle),
                color, scam. See layoutFace2().
      Face 3 — one artwork filling the whole face. No QR codes. See
@@ -27,8 +28,9 @@
                                 loaded; re-render then)
      update,     (camera, dt) => bool
                                (call every frame: updates camera-dependent
-                                state — the lenticular panel's view; true
-                                while still animating)
+                                state — the lenticular panel's view, the
+                                angle prism's scan cue; true while still
+                                animating)
    }
 
    World units are metres.
@@ -37,10 +39,21 @@
 import * as THREE from "three";
 import {
   buildPerspectivePrism,
+  reshapePerspectivePrism,
+  updateScanCue,
   PRISM,
 } from "./perspective-prism.js";
+import { getShape, onShapeChange } from "./prism-shape.js";
 import { PATTERN_SIZE, getPattern, onPatternChange } from "./floor-pattern.js";
 import { loadQrossword, drawQrossword, getFound, onFoundChange } from "./qrossword.js";
+import {
+  VIEWS as LENS_VIEWS,
+  QR_FRAC as LENS_QR_FRAC,
+  getChoice as getLensChoice,
+  onChoiceChange as onLensChoiceChange,
+  loadLensImages,
+  drawLensView,
+} from "./lens-emoji.js";
 
 /* ---- silhouette dimensions (metres) --------------------------------- */
 const SIDE = 0.6; // shaft triangle edge
@@ -167,7 +180,8 @@ const F2_TILES_CAPTIONS = [[204, 601, 88, 23]];
 // qrossword: the panel is QROSSWORD, showing the words found in its modal
 // (see makeQrosswordPanel). prism: the panel is the 3D perspective QR
 // prism (perspective-prism.js) instead of a flat card — its footprint is
-// PRISM.W x PRISM.L, i.e. 210mm x 160mm.
+// PRISM.W x PRISM.L, i.e. 210mm x 160mm; its height, ridge and scan
+// distance follow the angle modal (prism-shape.js).
 const F2_PANELS = [
   // handdrawn: QROSSWORD's square, the art centred in it at full height
   { n: 1, x: 382.1, y: 664.9, w: 164.3, h: 164.3, qrossword: true, captions: [[481, 839, 68, 22]] },
@@ -177,14 +191,10 @@ const F2_PANELS = [
     card: {
       radius: 13,
       qrBox: [39.5, 19.0, 82.5],
-      qrFrac: 1110 / 1218,
+      qrFrac: LENS_QR_FRAC,
       lenticular: {
-        // left to right, as seen moving round the panel from its left
-        views: [
-          { slug: "lens-l", qr: "lens-l/assets/1_left.png" },
-          { slug: "lens-c", qr: "lens-c/assets/2_center.png" },
-          { slug: "lens-r", qr: "lens-r/assets/3_right.png" },
-        ],
+        // the views (left to right, as seen moving round the panel from
+        // its left) and their emoji come from lens-emoji.js
         spreadDeg: 30, // views split the angles -30..+30deg evenly; beyond, the end views
       },
     },
@@ -828,16 +838,20 @@ function makeCardPanel(qrId, w, h, card, seed) {
 }
 
 /* ---- lenticular QR -----------------------------------------------------
-   After the lenticular simulator: one QR image per view. Which view shows
-   depends on the camera's horizontal angle to the panel — the angles
+   After the lenticular simulator: one QR per view (lens-emoji.js's
+   VIEWS), each drawn on a canvas texture with the emoji chosen for it in
+   the lens modals, redrawn when that changes. Which view shows depends on
+   the camera's horizontal angle to the panel — the angles
    -spreadDeg..+spreadDeg split evenly between the views, left to right,
    and past either end the end view holds, like the flip of a real
    lenticular print. panel.userData.slug follows the view, so a click
    opens that view's page. Call panel.userData.lens.update(camera) each
    frame.
    ------------------------------------------------------------------- */
+const LENS_PX = 1200; // a view's texture side: the 400px QR at 3x
+
 function makeLenticular(panel, qr, qrMat, lens) {
-  const views = lens.views.map((v) => ({ ...v, qrTex: null }));
+  const views = LENS_VIEWS.map((v) => ({ ...v, qrTex: null }));
   const spread = THREE.MathUtils.degToRad(lens.spreadDeg);
   const local = new THREE.Vector3();
   let current = -1;
@@ -861,14 +875,23 @@ function makeLenticular(panel, qr, qrMat, lens) {
   };
 
   qr.visible = false;
-  return Promise.all(
-    views.map((v) =>
-      loadTexture(v.qr, true).then((qrTex) => {
-        v.qrTex = qrTex;
-      }),
-    ),
-  )
-    .then(() => {
+  return loadLensImages()
+    .then((images) => {
+      views.forEach((v) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = LENS_PX;
+        v.ctx = canvas.getContext("2d");
+        v.qrTex = new THREE.CanvasTexture(canvas);
+        v.qrTex.colorSpace = THREE.SRGBColorSpace;
+        v.qrTex.anisotropy = 4;
+      });
+      const draw = (choice) =>
+        views.forEach((v, i) => {
+          drawLensView(v.ctx, images, i, choice[i], LENS_PX);
+          v.qrTex.needsUpdate = true;
+        });
+      draw(getLensChoice());
+      onLensChoiceChange(draw);
       show(Math.floor(views.length / 2)); // centre view until the camera says otherwise
       qr.visible = true;
     })
@@ -986,7 +1009,11 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       assetLoads.push(built.ready);
       panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     } else if (prism) {
-      panel = buildPerspectivePrism();
+      const prismPanel = buildPerspectivePrism(getShape());
+      onShapeChange((shape) => reshapePerspectivePrism(prismPanel, shape));
+      // the scan cue shows while the camera is at the scan point
+      updaters.push((camera, dt) => updateScanCue(prismPanel, camera, dt));
+      panel = prismPanel;
       panel.userData.qrId = qrId;
       panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), 0.001);
     } else {
@@ -1199,8 +1226,8 @@ export function buildObelisk() {
   const group = new THREE.Group();
   const qrTargets = [];
   const assetLoads = [];
-  // per-frame, camera-dependent updates (the lenticular panel's view);
-  // each returns true while animating
+  // per-frame, camera-dependent updates (the lenticular panel's view,
+  // the angle prism's scan cue); each returns true while animating
   const updaters = [];
 
   // unlit, like the faces' artwork, so the shaft's top and edges are the

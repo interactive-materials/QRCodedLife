@@ -158,9 +158,10 @@ export default function render({ titleId }) {
 /* ---- canvas -------------------------------------------------------------
    Layout, in CSS px. The canvas splits into two sections: the QR's, the
    left QR_SECTION of its width, and the slider's, the rest. The QR is a
-   square centred in its section, as big as fits with QR_MARGIN all
-   round — as in handdrawn.js, so the two QRs are the
-   same size in the same place; the slider is centred in its section. The slider is a vertical track SLIDER_LENGTH of the QR's
+   square as big as fits in its section with QR_MARGIN all round, at its
+   left; the slider sits at the canvas's right, its thumb QR_MARGIN in, so
+   the two sides' margins match — as in handdrawn.js, tiles-qr.js and
+   angle.js, so every modal's QR is the same size in the same place. The slider is a vertical track SLIDER_LENGTH of the QR's
    height, centred on it; its value runs down: colour at the top, black
    and white at the bottom.
    ------------------------------------------------------------------------ */
@@ -200,12 +201,15 @@ export function mount(root) {
     const r = rem();
     const colW = 2 * THUMB_R * r;
     const section = width * QR_SECTION;
-    const size = Math.max(0, Math.min(height, section) - 2 * QR_MARGIN * r);
-    const x = (section - size) / 2;
+    const margin = QR_MARGIN * r;
+    const size = Math.max(0, Math.min(height, section) - 2 * margin);
+    const x = margin;
     const y = (height - size) / 2;
     const length = size * SLIDER_LENGTH;
     track = {
-      x: (section + width) / 2,
+      // the thumb's outer edge (its stroke straddles the radius) QR_MARGIN in
+      x: width - margin - THUMB_R * r - THUMB_STROKE / 2,
+
       y0: y + (size - length) / 2,
       y1: y + (size + length) / 2,
       w: colW,

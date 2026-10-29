@@ -87,9 +87,11 @@ export default function render({ titleId }) {
 /* ---- canvas -------------------------------------------------------------
    Layout, in CSS px. The canvas splits into two sections: the QR's, the
    left QR_SECTION of its width, and the list's, the rest. The QR is a
-   square centred in its section, as big as fits with QR_MARGIN all
-   round — as in color.js, so the two QRs are the same
-   size in the same place; the list is centred in its section. The list is its heading, then the words running down in as
+   square as big as fits in its section with QR_MARGIN all round, at its
+   left; the list sits at the canvas's right, QR_MARGIN in, so the two
+   sides' margins match — as in color.js, tiles-qr.js and angle.js, so
+   every modal's QR is the same size in the same place. Any room to
+   spare goes between them. The list is its heading, then the words running down in as
    many columns as fit the canvas's height under it, each as wide as its
    longest word; where it's wider than the room beside the QR (on a
    phone), its text shrinks to fit.
@@ -129,12 +131,17 @@ export function mount(root) {
     const columns = Math.ceil(WORDS.length / perColumn);
     const colW = Math.max(...WORDS.map(({ word }) => ctx.measureText(word).width));
     const colGap = COLUMN_GAP * px;
+    // the last column only as wide as its own longest word, so the list
+    // ends where its text does
+    const lastW = Math.max(
+      ...WORDS.slice((columns - 1) * perColumn).map(({ word }) => ctx.measureText(word).width),
+    );
     return {
       px,
       lineH,
       perColumn,
       colStep: colW + colGap,
-      w: Math.max(headingW, columns * colW + (columns - 1) * colGap),
+      w: Math.max(headingW, (columns - 1) * (colW + colGap) + lastW),
       h: (Math.min(WORDS.length, perColumn) + 1) * lineH,
     };
   }
@@ -143,15 +150,16 @@ export function mount(root) {
   function layout() {
     const r = rem();
     const section = width * QR_SECTION;
-    const size = Math.max(0, Math.min(height, section) - 2 * QR_MARGIN * r);
-    const room = width - section;
+    const margin = QR_MARGIN * r;
+    const size = Math.max(0, Math.min(height, section) - 2 * margin);
+    const room = width - section - margin;
     // shrinking the text can free a row per column, so close in on a fit
     let list = measureList(FONT_SIZE * r);
     for (let k = 0; k < 4 && list.w > room && room > 0; k++) {
       list = measureList(list.px * (room / list.w));
     }
-    qr = { x: (section - size) / 2, y: (height - size) / 2, size };
-    const listX = section + Math.max(0, room - list.w) / 2;
+    qr = { x: margin, y: (height - size) / 2, size };
+    const listX = width - margin - Math.min(room, list.w);
     const listY = (height - list.h) / 2;
     heading = { x: listX, y: listY, h: list.lineH };
     rows = WORDS.map((_, i) => ({
