@@ -339,13 +339,6 @@ function bakeFaceTexture(corners, sizeCm, camHeight, bg, dark) {
   return tex;
 }
 
-// the prism is a thin double-sided shell: a ray from inside it would hit
-// its faces, so main.js's keep-the-camera-outside check skips it
-function prismMesh(geometry, material) {
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.userData.noCollide = true;
-  return mesh;
-}
 
 // a steady glow (the cards' hover glow) so the slopes, shaded grey by the
 // lights, keep their true white and blue; hovering only enlarges it
@@ -414,9 +407,8 @@ function cueMesh(geometry, color, renderOrder) {
     }),
   );
   mesh.renderOrder = renderOrder;
-  // never picked, zoomed at or collided with
+  // never picked or zoomed at
   mesh.userData.ignoreRaycast = true;
-  mesh.userData.noCollide = true;
   return mesh;
 }
 
@@ -496,11 +488,11 @@ function buildInner(s) {
     const map = bakeFaceTexture(fc[name], sizeCm, camHeight, s.prismColor, s.qrColor);
     // emissiveMap = the same graphic, so the glow lifts it evenly
     const mat = faceMaterial({ map, emissiveMap: map, emissive: 0xffffff });
-    inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
+    inner.add(new THREE.Mesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
   for (const name of ["left", "right"]) {
     const mat = faceMaterial({ color: s.prismColor, emissive: s.prismColor });
-    inner.add(prismMesh(buildFaceGeometry(fc[name], GRID_N), mat));
+    inner.add(new THREE.Mesh(buildFaceGeometry(fc[name], GRID_N), mat));
   }
   const cue = buildScanCue(s, fc, sizeCm, camHeight);
   inner.add(cue);

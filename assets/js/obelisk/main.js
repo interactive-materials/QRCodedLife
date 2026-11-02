@@ -41,18 +41,20 @@ let renderRequested = false;
 let lastTick = 0;
 
 // how close the camera may get to its orbit target (m) when zooming in on
-// a point of the obelisk — close enough to reach the angle prism's scan
-// point at its nearest (see prism-shape.js). Zooming at empty space stops at farMinDist instead.
+// a point of the obelisk (it also stops at minRadius, which mostly comes
+// first). Zooming at empty space stops at farMinDist instead.
 const MIN_ZOOM_DIST = 0.06;
 let farMinDist = 1;
 // the starting view's distance from the obelisk's centre (m), set by
 // frameCamera; zooming out heads back to it and stops there
 let homeDist = 1;
 const HOME_TARGET = new THREE.Vector3(0, 0, 0);
-// the camera never gets closer than this to the obelisk's surface (m)
+// the camera never gets nearer the obelisk's axis than its corners plus
+// SURFACE_MARGIN (m): minRadius, about 37cm (see keepCameraOutside)
 const SURFACE_MARGIN = 0.02;
-// the closest keepCameraOutside may pull the camera to its target (m);
-// also OrbitControls' own minDistance, so the two never fight over it
+let minRadius = 1;
+// OrbitControls' own minDistance, below the zoom limits so it never
+// fights them
 const MIN_ORBIT_DIST = MIN_ZOOM_DIST / 2;
 // field of view widens from FAR_FOV to a phone-camera-like CLOSE_FOV as
 // the camera closes in on its target (between FOV_RANGE, m), so the angle
@@ -158,6 +160,7 @@ function init() {
 
   obelisk = buildObelisk();
   scene.add(obelisk.group);
+  minRadius = obelisk.radius + SURFACE_MARGIN;
   obelisk.qrTargets.forEach((panel) =>
     setPanelEnabled(panel, Boolean(pageRoutes[panel.userData.qrId])),
   );
@@ -467,25 +470,20 @@ function clampTarget() {
   if (!clamped.equals(t)) moveBoth(clamped.sub(t));
 }
 
-// Orbiting close around a point on the surface can swing the camera into
-// the obelisk; pull it back along its line to the target, just in front of
-// the first surface in the way.
+// The camera keeps outside a cylinder round the obelisk's axis, MIN_RADIUS
+// across, which clears the shaft's corners: orbiting or zooming from any
+// angle, it never comes nearer, so it never meets the shaft. Pushes the
+// camera straight out from the axis back onto it.
 function keepCameraOutside() {
-  const dir = camera.position.clone().sub(controls.target);
-  const len = dir.length();
-  if (len < 1e-6) return;
-  raycaster.set(controls.target, dir.divideScalar(len));
-  raycaster.near = 0.005; // skip the surface the target itself sits on
-  raycaster.far = len + SURFACE_MARGIN;
-  const hit = raycaster
-    .intersectObject(obelisk.group, true)
-    .find((h) => !h.object.userData.ignoreRaycast && !h.object.userData.noCollide);
-  raycaster.near = 0;
-  raycaster.far = Infinity;
-  if (hit) {
-    const d = Math.max(MIN_ORBIT_DIST, hit.distance - SURFACE_MARGIN);
-    camera.position.copy(controls.target).addScaledVector(dir, d);
+  const p = camera.position;
+  const r = Math.hypot(p.x, p.z);
+  if (r >= minRadius) return;
+  if (r < 1e-6) {
+    p.z = minRadius;
+    return;
   }
+  p.x *= minRadius / r;
+  p.z *= minRadius / r;
 }
 
 function panBy(dy) {
@@ -599,7 +597,23 @@ function zoomBy(factor, ndc = new THREE.Vector2(0, 0)) {
     minDist,
     controls.maxDistance,
   );
-  const f = clampedDist / dist;
+  let f = clampedDist / dist;
+  // stop at minRadius too, rather than have keepCameraOutside push the
+  // camera back while the target carries on toward the pivot
+  const radiusAt = (k) => {
+    const p = camera.position.clone().sub(pivot).multiplyScalar(k).add(pivot);
+    return Math.hypot(p.x, p.z);
+  };
+  if (radiusAt(f) < minRadius) {
+    let lo = f;
+    let hi = 1;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      if (radiusAt(mid) < minRadius) lo = mid;
+      else hi = mid;
+    }
+    f = hi;
+  }
   if (Math.abs(f - 1) < 1e-6) return;
 
   controls.target.sub(pivot).multiplyScalar(f).add(pivot);

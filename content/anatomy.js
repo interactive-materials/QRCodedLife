@@ -36,8 +36,8 @@ const copy = {
     {
       name: "Quiet Zone",
       text: "The quiet zone is the blank margin surrounding the QR code. Each QR code needs a quiet zone that is at least one cell wide. The quiet zone helps isolate the QR code from the background for scanning.",
-      src: img("quiet_zone.svg"),
-      caption: "The quiet zone.",
+      src: img("quiet-zone.png"),
+      caption: "Example of real QR codes with quiet zones. The left one is a real QR code with no quiet zone, making it unscannable. The right one shows the same QR code, modified to have a quiet zone the same color as the light modules, making it scannable.",
     },
   ],
 };

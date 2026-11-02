@@ -476,11 +476,8 @@ function addCaptions(panel, captions = [], full, assetLoads) {
    stacked behind it down to the face, cut to the artwork's own outline
    (alphaTest), so a hand-drawn frame gets a hand-drawn edge. A card's is
    its outline extruded. Either is marked userData.edge (see
-   setPanelEnabled) and left out of raycasts (ignoreRaycast): picking and
-   the camera's collisions go by the panel's front alone. (A card edge's
-   undrawn back cap faces into the obelisk, and keepCameraOutside's ray,
-   cast from an orbit target inside it, would stop on it, pulling the
-   camera in.)
+   setPanelEnabled) and left out of raycasts (ignoreRaycast): picking
+   goes by the panel's front alone.
    ------------------------------------------------------------------- */
 const EDGE_DATA = { edge: true, ignoreRaycast: true };
 const EDGE_DEPTH = (PANEL_THICK - 0.2) * MM; // stops short of the face art
@@ -1268,6 +1265,9 @@ export function buildObelisk() {
     group,
     qrTargets,
     height: TOTAL_H,
+    // axis -> corner: everything on the shaft (panels, the angle prism)
+    // lies within it
+    radius: R,
     floorRadius: FLOOR_SIZE / 2,
     assetsReady: Promise.all(assetLoads),
     update: (camera, dt) =>

@@ -56,10 +56,16 @@ const qrossword = await loadQrossword().catch((err) => {
   return null;
 });
 
-// the expand button's hand-drawn icon: a two-headed arrow on a dark,
-// translucent rounded square, ICON_RADIUS of its side round the corners
-const expandIcon = new Image();
-expandIcon.src = new URL("../handdrawn/assets/expand-icon.svg", import.meta.url).href;
+// the expand button's hand-drawn icons, to expand and (once expanded) to
+// minimise: each on a dark, translucent rounded square, ICON_RADIUS of
+// its side round the corners
+const asset = (name) => {
+  const image = new Image();
+  image.src = new URL(`../handdrawn/assets/${name}`, import.meta.url).href;
+  return image;
+};
+const expandIcon = asset("expand-icon.svg");
+const minimiseIcon = asset("minimise-icon.svg");
 const ICON_RADIUS = 2.73 / 24.05;
 
 /* ---- HTML ---------------------------------------------------------------
@@ -114,12 +120,13 @@ export default function render({ titleId }) {
    Expanded, the canvas is the whole modal's width and most of its
    height: the QR is a square as wide as the canvas less QR_MARGIN each
    side, the list under it, LIST_GAP down, in as many columns as fit
-   across, and the two centred down the canvas together; where they're
+   across and centred across, and the two centred down the canvas
+   together; where they're
    taller than it, the QR shrinks to leave the list room.
 
-   The expand button, expandIcon, sits in the QR's bottom right corner,
-   ICON_INSET in, ICON_SIZE across; both are shares of the QR's side, so
-   it scales with the QR.
+   The expand button (expandIcon, or minimiseIcon while expanded) sits in
+   the QR's bottom right corner, ICON_INSET in, ICON_SIZE across; both
+   are shares of the QR's side, so it scales with the QR.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the QR's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the QR, inside its section (rem)
@@ -127,7 +134,9 @@ const FONT_SIZE = 0.8125; // the list's text, at most (rem)
 const LINE_HEIGHT = 1.6; // a row, as a multiple of the font size
 const COLUMN_GAP = 1.25; // between list columns (em)
 const LIST_GAP = 1; // expanded: the QR to the list under it (rem)
-const ICON_SIZE = 0.08; // the expand button, as a share of the QR's side
+// the expand button, as a share of the QR's side: larger to expand the
+// small QR, smaller to minimise the expanded one
+const ICON_SIZE = { expand: 0.125, minimise: 0.08 };
 const ICON_INSET = 0.04; // from the QR's edges, as a share of its side
 
 export function mount(root) {
@@ -203,7 +212,8 @@ export function mount(root) {
       const size = Math.max(0, Math.min(across, height - 2 * margin - gap - list.h));
       const top = (height - size - gap - list.h) / 2;
       qr = { x: (width - size) / 2, y: top, size };
-      listX = qr.x;
+      // the list centred across, its text still left-aligned within it
+      listX = (width - Math.min(across, list.w)) / 2;
       listY = top + size + gap;
     } else {
       const section = width * QR_SECTION;
@@ -225,7 +235,7 @@ export function mount(root) {
       h: list.lineH,
     }));
 
-    const iconSize = qr.size * ICON_SIZE;
+    const iconSize = qr.size * ICON_SIZE[expanded ? "minimise" : "expand"];
     const inset = qr.size * ICON_INSET;
     icon = {
       x: qr.x + qr.size - inset - iconSize,
@@ -235,12 +245,13 @@ export function mount(root) {
     return list.px;
   }
 
-  // the expand button: expandIcon, the same expanded or not, outlined in
-  // the accent while hovered and ringed while focused
+  // the expand button: expandIcon, or minimiseIcon while expanded,
+  // outlined in the accent while hovered and ringed while focused
   function drawIcon() {
-    if (!expandIcon.complete || !expandIcon.naturalWidth) return;
+    const image = expanded ? minimiseIcon : expandIcon;
+    if (!image.complete || !image.naturalWidth) return;
     const { x, y, size } = icon;
-    ctx.drawImage(expandIcon, x, y, size, size);
+    ctx.drawImage(image, x, y, size, size);
     const outline = (pad, lineWidth) => {
       ctx.beginPath();
       ctx.roundRect(x - pad, y - pad, size + 2 * pad, size + 2 * pad, size * ICON_RADIUS + pad);
@@ -320,9 +331,9 @@ export function mount(root) {
   });
   resizer.observe(canvas);
 
-  // the web font and the icon may land after the first draw
+  // the web font and the icons may land after the first draw
   document.fonts?.ready.then(invalidate);
-  expandIcon.decode().then(invalidate, () => {});
+  for (const image of [expandIcon, minimiseIcon]) image.decode().then(invalidate, () => {});
 
   // ---- finding: tapping a word's box on the QR finds it
   const local = (e) => {
