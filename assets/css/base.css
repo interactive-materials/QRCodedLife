@@ -219,6 +219,8 @@ dialog.modal {
      rule and the title */
   --modal-gap: 1.5rem;
   --modal-text-gap: 0.5rem; /* a heading (title or part) to its paragraph */
+  /* a picture's caption, and a placeholder's labels: white, greyed */
+  --caption: rgba(255, 255, 255, 0.7);
 }
 
 /* the QOLORFUL modal's slider greys the whole site:
@@ -598,10 +600,33 @@ dialog.modal[open]::backdrop {
   background: none;
 }
 
-/* in DM Sans Light (each page's Google Fonts link loads the 300) */
+/* a picture still to come (content/contrast.js): a dashed box per panel,
+   side by side, about the anatomy pictures' shape, each labelled with
+   what goes there */
+.modal__placeholder {
+  display: flex;
+  gap: 0.75rem;
+  aspect-ratio: 2 / 1;
+}
+
+.modal__placeholder > span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  text-align: center;
+  color: var(--caption);
+}
+
+/* in DM Sans Light (each page's Google Fonts link loads the 300), grey */
 .modal__figure figcaption {
   margin-top: 0.5rem;
   font-weight: 300;
+  color: var(--caption);
   text-align: justify;
   font-size: 0.85rem;
 }

@@ -4,14 +4,32 @@
 
    Default-exports render({ titleId }), which returns the modal's HTML:
    the subtitle in the header row (beside the close button), then the
-   title and copy. The close button stays outside, in each page's HTML.
+   title and copy, each paragraph with its picture (if any) below it. The
+   close button stays outside, in each page's HTML.
    ========================================================================== */
+
+import { placeholder } from "./modal-layout.js";
 
 const copy = {
   subtitle: "What makes a QR code scannable?",
-  title: "Necessary Contrast",
+  title: "QR Codes and Contrast",
+  // each paragraph's figure is a placeholder for now: a dashed box per
+  // panel, labelled with what goes there, and the caption under them
   body: [
-    "A scanner needs enough contrast between light and dark modules to read a code at all. Placeholder copy for this panel.",
+    {
+      text: "QR codes are commonly placed on a plain background. However, they can be scanned as long as they maintain sufficient contrast from their background.",
+      figure: {
+        panels: ["Placeholder image"],
+        caption: "QR code of different colors with different background",
+      },
+    },
+    {
+      text: "Dark colored QR codes are best placed on a light colored background, while light colored QR codes are best placed on a dark colored background.",
+      figure: {
+        panels: ["Mirror QR on a white background", "Mirror QR on a black background"],
+        caption: "",
+      },
+    },
   ],
 };
 
@@ -27,7 +45,11 @@ export default function render({ titleId }) {
       <div class="modal__text">
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
-          ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${copy.body
+            .map(({ text, figure }) => `
+          <p>${text}</p>
+          ${figure ? placeholder(figure) : ""}`)
+            .join("")}
         </div>
       </div>
     </div>

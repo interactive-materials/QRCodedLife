@@ -29,6 +29,17 @@ function image(img) {
   return `<img src="${new URL(img.src, SITE_ROOT).href}" alt="${img.alt || ""}" loading="lazy" />`;
 }
 
+// a picture still to come, for a modal that renders its own HTML (as
+// contrast.js and reliable.js do): a dashed box per panel, labelled with
+// what goes there, and the caption, if any, under them
+export const placeholder = ({ panels, caption }) => `
+          <figure class="modal__figure">
+            <div class="modal__placeholder">
+              ${panels.map((label) => `<span>${label}</span>`).join("")}
+            </div>
+            ${caption ? `<figcaption>${caption}</figcaption>` : ""}
+          </figure>`;
+
 // titleId lets the <dialog>'s aria-labelledby point at the heading
 export function renderModal(entry, { titleId, fallbackTitle = "" } = {}) {
   return `
