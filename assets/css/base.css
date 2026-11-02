@@ -343,6 +343,16 @@ dialog.modal[open]::backdrop {
   height: 40%;
 }
 
+/* expanded (the QROSSWORD modal's expand button, content/handdrawn.js):
+   the top fills the whole modal, and the rule and the copy give way */
+.modal__layout.is-expanded .modal__top {
+  height: 100%;
+}
+
+.modal__layout.is-expanded > :not(.modal__top) {
+  display: none;
+}
+
 /* the eyebrow and the close button as one row: the row is the ×'s
    height, at the same top inset, and the eyebrow is centred in it, so
    both share a centre line (the button itself stays in the page's HTML,
@@ -567,8 +577,9 @@ dialog.modal[open]::backdrop {
 }
 
 /* a picture in the copy with its caption, both centred */
+/* inset 3rem each side; the picture and its caption share the width */
 .modal__figure {
-  margin: 1.25rem 0;
+  margin: 1.25rem 3rem;
   text-align: center;
 }
 
@@ -581,8 +592,17 @@ dialog.modal[open]::backdrop {
   background: #fff;
 }
 
+/* a picture with its own transparent backing, the text's full width */
+.modal__figure--wide img {
+  width: 100%;
+  background: none;
+}
+
+/* in DM Sans Light (each page's Google Fonts link loads the 300) */
 .modal__figure figcaption {
   margin-top: 0.5rem;
+  font-weight: 300;
+  text-align: justify;
   font-size: 0.85rem;
 }
 

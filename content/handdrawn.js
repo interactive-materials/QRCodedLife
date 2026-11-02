@@ -16,6 +16,11 @@
    its box is drawn on the QR and it's crossed out in the list. The list
    itself isn't tappable — the words have to be found in the QR.
 
+   A round button in the QR's bottom right corner, as the angle modal's,
+   expands it: the stage takes the whole modal (the rule and the copy
+   go), the QR fills its width and the list runs under it. The button,
+   or Escape, shrinks it back.
+
    The QR, its words and the finds come from assets/js/obelisk/qrossword.js,
    which the obelisk's QROSSWORD panel shares, so a word found here shows
    there too.
@@ -35,6 +40,8 @@ const copy = {
   title: "Qrossword",
   stageLabel: "QROSSWORD, a hand-drawn QR code that is also a word search",
   listHeading: "Find the MRT stations:",
+  expand: "Expand the word search",
+  collapse: "Shrink the word search",
   body: [
     "QR code is often computer-generated and unreadable to humans.",
     "QROSSWORD replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting while allowing readable messages to be encoded inside the QR code",
@@ -49,10 +56,17 @@ const qrossword = await loadQrossword().catch((err) => {
   return null;
 });
 
+// the expand button's hand-drawn icon: a two-headed arrow on a dark,
+// translucent rounded square, ICON_RADIUS of its side round the corners
+const expandIcon = new Image();
+expandIcon.src = new URL("../handdrawn/assets/expand-icon.svg", import.meta.url).href;
+const ICON_RADIUS = 2.73 / 24.05;
+
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
    list inside the <canvas> is its fallback content: never drawn, but read
-   by screen readers; a found word's item says so.
+   by screen readers; a found word's item says so. The button is the
+   expand button's fallback: focusable, and clicked by the drawn one.
    ------------------------------------------------------------------------ */
 const itemText = (i, isFound) => `${WORDS[i].word}${isFound ? " (found)" : ""}`;
 
@@ -69,6 +83,7 @@ export default function render({ titleId }) {
               ${getFound().map((isFound, i) => `
               <li data-word="${i}">${itemText(i, isFound)}</li>`).join("")}
             </ul>
+            <button type="button" data-expand aria-pressed="false" aria-label="${copy.expand}"></button>
           </canvas>
         </div>
       </div>
@@ -95,18 +110,34 @@ export default function render({ titleId }) {
    many columns as fit the canvas's height under it, each as wide as its
    longest word; where it's wider than the room beside the QR (on a
    phone), its text shrinks to fit.
+
+   Expanded, the canvas is the whole modal's width and most of its
+   height: the QR is a square as wide as the canvas less QR_MARGIN each
+   side, the list under it, LIST_GAP down, in as many columns as fit
+   across, and the two centred down the canvas together; where they're
+   taller than it, the QR shrinks to leave the list room.
+
+   The expand button, expandIcon, sits in the QR's bottom right corner,
+   ICON_INSET in, ICON_SIZE across; both are shares of the QR's side, so
+   it scales with the QR.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the QR's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the QR, inside its section (rem)
 const FONT_SIZE = 0.8125; // the list's text, at most (rem)
 const LINE_HEIGHT = 1.6; // a row, as a multiple of the font size
 const COLUMN_GAP = 1.25; // between list columns (em)
+const LIST_GAP = 1; // expanded: the QR to the list under it (rem)
+const ICON_SIZE = 0.08; // the expand button, as a share of the QR's side
+const ICON_INSET = 0.04; // from the QR's edges, as a share of its side
 
 export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
   const items = canvas ? [...canvas.querySelectorAll("li[data-word]")] : [];
-  if (!canvas || !items.length) return null;
+  const expandButton = canvas && canvas.querySelector("button[data-expand]");
+  const layoutEl = root.querySelector(".modal__layout");
+  if (!canvas || !items.length || !expandButton || !layoutEl) return null;
   const ctx = canvas.getContext("2d");
+  const dialog = root.closest("dialog");
 
   let width = 0;
   let height = 0;
@@ -115,22 +146,30 @@ export function mount(root) {
   let qr = { x: 0, y: 0, size: 0 };
   let heading = { x: 0, y: 0, h: 0 }; // the list's heading row, CSS px
   let rows = []; // [{ x, y, h }] per word: its row in the list, CSS px
+  let icon = { x: 0, y: 0, size: 0 }; // the expand button, CSS px
   let found = getFound();
+  let expanded = false;
+  let hover = false; // the pointer is over the expand button
+  let focus = false; // the expand button's fallback is focused
 
   const css = (name) => getComputedStyle(canvas).getPropertyValue(name).trim();
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
   const font = (px, weight = 400) => `${weight} ${px}px ${css("--font") || "sans-serif"}`;
 
-  // the list at font size px: its columns and overall size
-  function measureList(px) {
+  // the list at font size px: its columns and overall size. Beside the
+  // QR, a column runs the canvas's height; under it (given the room
+  // across), there are as many columns as fit across
+  function measureList(px, across = 0) {
     const lineH = px * LINE_HEIGHT;
     ctx.font = font(px, 700);
     const headingW = ctx.measureText(copy.listHeading).width;
     ctx.font = font(px);
-    const perColumn = Math.max(1, Math.floor(height / lineH) - 1);
-    const columns = Math.ceil(WORDS.length / perColumn);
     const colW = Math.max(...WORDS.map(({ word }) => ctx.measureText(word).width));
     const colGap = COLUMN_GAP * px;
+    const perColumn = across
+      ? Math.ceil(WORDS.length / Math.max(1, Math.floor((across + colGap) / (colW + colGap))))
+      : Math.max(1, Math.floor(height / lineH) - 1);
+    const columns = Math.ceil(WORDS.length / perColumn);
     // the last column only as wide as its own longest word, so the list
     // ends where its text does
     const lastW = Math.max(
@@ -146,28 +185,71 @@ export function mount(root) {
     };
   }
 
-  // lays out the QR and the list; returns the list's font size (px)
+  // lays out the QR, the list and the expand button; returns the list's
+  // font size (px)
   function layout() {
     const r = rem();
-    const section = width * QR_SECTION;
     const margin = QR_MARGIN * r;
-    const size = Math.max(0, Math.min(height, section) - 2 * margin);
-    const room = width - section - margin;
-    // shrinking the text can free a row per column, so close in on a fit
-    let list = measureList(FONT_SIZE * r);
-    for (let k = 0; k < 4 && list.w > room && room > 0; k++) {
-      list = measureList(list.px * (room / list.w));
+    let list;
+    let listX;
+    let listY;
+    if (expanded) {
+      const across = Math.max(0, width - 2 * margin);
+      list = measureList(FONT_SIZE * r, across);
+      for (let k = 0; k < 4 && list.w > across && across > 0; k++) {
+        list = measureList(list.px * (across / list.w), across);
+      }
+      const gap = LIST_GAP * r;
+      const size = Math.max(0, Math.min(across, height - 2 * margin - gap - list.h));
+      const top = (height - size - gap - list.h) / 2;
+      qr = { x: (width - size) / 2, y: top, size };
+      listX = qr.x;
+      listY = top + size + gap;
+    } else {
+      const section = width * QR_SECTION;
+      const size = Math.max(0, Math.min(height, section) - 2 * margin);
+      const room = width - section - margin;
+      // shrinking the text can free a row per column, so close in on a fit
+      list = measureList(FONT_SIZE * r);
+      for (let k = 0; k < 4 && list.w > room && room > 0; k++) {
+        list = measureList(list.px * (room / list.w));
+      }
+      qr = { x: margin, y: (height - size) / 2, size };
+      listX = width - margin - Math.min(room, list.w);
+      listY = (height - list.h) / 2;
     }
-    qr = { x: margin, y: (height - size) / 2, size };
-    const listX = width - margin - Math.min(room, list.w);
-    const listY = (height - list.h) / 2;
     heading = { x: listX, y: listY, h: list.lineH };
     rows = WORDS.map((_, i) => ({
       x: listX + Math.floor(i / list.perColumn) * list.colStep,
       y: listY + (1 + (i % list.perColumn)) * list.lineH,
       h: list.lineH,
     }));
+
+    const iconSize = qr.size * ICON_SIZE;
+    const inset = qr.size * ICON_INSET;
+    icon = {
+      x: qr.x + qr.size - inset - iconSize,
+      y: qr.y + qr.size - inset - iconSize,
+      size: iconSize,
+    };
     return list.px;
+  }
+
+  // the expand button: expandIcon, the same expanded or not, outlined in
+  // the accent while hovered and ringed while focused
+  function drawIcon() {
+    if (!expandIcon.complete || !expandIcon.naturalWidth) return;
+    const { x, y, size } = icon;
+    ctx.drawImage(expandIcon, x, y, size, size);
+    const outline = (pad, lineWidth) => {
+      ctx.beginPath();
+      ctx.roundRect(x - pad, y - pad, size + 2 * pad, size + 2 * pad, size * ICON_RADIUS + pad);
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = css("--accent");
+      ctx.stroke();
+    };
+    if (hover) outline(0.5, 1);
+    if (focus) outline(3, 2);
   }
 
   // a word's box on the QR, in CSS px
@@ -186,6 +268,7 @@ export function mount(root) {
       const y = Math.round(qr.y * dpr) / dpr;
       const size = Math.round(qr.size * dpr) / dpr;
       drawQrossword(ctx, qrossword, x, y, size, found);
+      drawIcon();
     }
 
     const fg = css("--fg");
@@ -237,8 +320,9 @@ export function mount(root) {
   });
   resizer.observe(canvas);
 
-  // the web font may land after the first draw
+  // the web font and the icon may land after the first draw
   document.fonts?.ready.then(invalidate);
+  expandIcon.decode().then(invalidate, () => {});
 
   // ---- finding: tapping a word's box on the QR finds it
   const local = (e) => {
@@ -255,29 +339,75 @@ export function mount(root) {
     return hits.find((i) => !found[i]) ?? hits[0] ?? -1;
   };
 
+  const onIcon = (e) => {
+    if (!qrossword) return false;
+    const [x, y] = local(e);
+    const { x: ix, y: iy, size } = icon;
+    return x >= ix && x <= ix + size && y >= iy && y <= iy + size;
+  };
+
+  // expanding grows the stage over the whole modal (.is-expanded, in
+  // base.css); the canvas's resize redraws it
+  function setExpanded(next) {
+    expanded = next;
+    layoutEl.classList.toggle("is-expanded", expanded);
+    expandButton.setAttribute("aria-pressed", String(expanded));
+    expandButton.setAttribute("aria-label", expanded ? copy.collapse : copy.expand);
+    invalidate();
+  }
+
   const onPointerUp = (e) => {
+    if (onIcon(e)) return expandButton.click();
     const i = wordAt(e);
     if (i < 0 || found[i]) return;
     canvas.style.cursor = "";
     findWord(i);
+  };
+  const onClick = (e) => {
+    if (e.target === expandButton) setExpanded(!expanded);
+  };
+  const onFocus = (e) => {
+    focus = e.type === "focusin" && e.target === expandButton;
+    invalidate();
+  };
+  // Escape shrinks an expanded word search before it closes the modal
+  // (on the keydown: the dialog's cancel can't always be stopped)
+  const onKeyDown = (e) => {
+    if (e.key !== "Escape" || !expanded) return;
+    e.preventDefault();
+    setExpanded(false);
   };
   const unsubscribe = onFoundChange((next) => {
     found = next;
     found.forEach((isFound, i) => (items[i].textContent = itemText(i, isFound)));
     invalidate();
   });
-  // the pointer cursor shows only over a box still to find
+  // the pointer cursor shows only over the expand button or a box still
+  // to find
   const onPointerMove = (e) => {
-    const i = wordAt(e);
-    canvas.style.cursor = i >= 0 && !found[i] ? "pointer" : "";
+    const over = onIcon(e);
+    if (over !== hover) {
+      hover = over;
+      invalidate();
+    }
+    const i = over ? -1 : wordAt(e);
+    canvas.style.cursor = over || (i >= 0 && !found[i]) ? "pointer" : "";
   };
   const onPointerLeave = () => {
     canvas.style.cursor = "";
+    if (hover) {
+      hover = false;
+      invalidate();
+    }
   };
 
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerleave", onPointerLeave);
+  canvas.addEventListener("click", onClick);
+  canvas.addEventListener("focusin", onFocus);
+  canvas.addEventListener("focusout", onFocus);
+  dialog?.addEventListener("keydown", onKeyDown);
   // colours come from CSS tokens
   const scheme = matchMedia("(prefers-color-scheme: dark)");
   scheme.addEventListener("change", invalidate);
@@ -290,6 +420,10 @@ export function mount(root) {
     canvas.removeEventListener("pointerup", onPointerUp);
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerleave", onPointerLeave);
+    canvas.removeEventListener("click", onClick);
+    canvas.removeEventListener("focusin", onFocus);
+    canvas.removeEventListener("focusout", onFocus);
+    dialog?.removeEventListener("keydown", onKeyDown);
     width = height = 0;
   };
 }

@@ -13,36 +13,43 @@ const img = (name) => new URL(`../anatomy/assets/${name}`, import.meta.url).href
 
 const copy = {
   subtitle: "What is in a QR code?",
-  title: "Clearly Defined Key Components",
+  title: "The Anatomy of a QR Code",
   intro:
-    "The QR (Quick Response) Code is a two-dimensional (2D) machine-readable codes which are made up of dark and light modules arranged into a square. Often scanned using a camera, the QR code is made up of multiple parts that makes it easy for us to scan a QR code from any angle and orientation.",
+    "A QR code is made up of multiple parts. Each part serves a different function. Collectively, they make QR codes easy to scan from any angle and orientation.",
     // "The QR code we use everyday is made up of multiple parts that makes it easy for us to scan a QR code from any angle and any orientation.",
-  figure: { src: img("qrcode.svg"), caption: "A QR code" },
+  // figure: { src: img("qrcode.svg"), caption: "A QR code" },
   parts: [
     {
       name: "Position Markers",
-      text: "The three squares at the corners of a QR code helps the decoder tell the orientation of the QR code and whether it is mirrored.",
-      src: img("posititon_squares.svg"),
+      text: "Each QR code comes with three position markers. These are patterns with a one cell-wide outline, a one cell gap, and a three by three cell square inside. This is the first thing a computer looks at. The three position markers indicate the presence and orientation of a QR code.",
+      src: img("position_squares.png"),
+      wide: true,
+      caption: "The three position markers of a QR code. They always sit in the same places: the top left, top right and bottom left corners.",
     },
     {
       name: "Timing Pattern",
-      text: "The timing patterns are two lines of alternating dark and light modules that run between the three finder patterns. They help the decoder work out the module grid, how big one unit is and how many rows and columns there are, allowing the decoder to understand the QR code even if it is distorted.",
-      src: img("timing_belt.svg"),
+      text: "The timing patterns are two lines of alternating dark and light cells that run between the position markers. They help identify the size of the QR code even if the image is distorted.",
+      src: img("timing-belt.png"),
+      wide: true,
+      caption: "Three QR codes of different sizes. Each is distorted to a different angle and is still scannable. The number of cells along each timing pattern shows the size of its QR code.",
     },
     {
       name: "Quiet Zone",
-      text: "The quiet zone is the light modules surrounding the QR code. It is needed for the QR code scanner to differentiate the QR code and the background, allowing the decoder to detect the QR code.",
+      text: "The quiet zone is the blank margin surrounding the QR code. Each QR code needs a quiet zone that is at least one cell wide. The quiet zone helps isolate the QR code from the background for scanning.",
       src: img("quiet_zone.svg"),
+      caption: "The quiet zone.",
     },
   ],
 };
 
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. Each
-   picture's caption doubles as its alt text, so alt is left empty.
+   picture's caption doubles as its alt text, so alt is left empty. The
+   whole QR code's figure shows only while copy.figure is set. A wide
+   part's picture fills the text's width, on no white backing.
    ------------------------------------------------------------------------ */
-const figure = (src, caption) => `
-          <figure class="modal__figure">
+const figure = (src, caption, wide = false) => `
+          <figure class="modal__figure${wide ? " modal__figure--wide" : ""}">
             <img src="${src}" alt="" />
             <figcaption>${caption}</figcaption>
           </figure>`;
@@ -57,13 +64,13 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           <p>${copy.intro}</p>
-          ${figure(copy.figure.src, copy.figure.caption)}
+          ${copy.figure ? figure(copy.figure.src, copy.figure.caption) : ""}
           ${copy.parts
             .map(
               (part) => `
           <h3 class="modal__part">${part.name}</h3>
           <p>${part.text}</p>
-          ${figure(part.src, part.name)}`,
+          ${figure(part.src, part.caption, part.wide)}`,
             )
             .join("")}
         </div>

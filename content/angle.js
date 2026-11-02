@@ -13,7 +13,11 @@
    The canvas is a model maker for DISTQRTED, the perspective QR prism
    (assets/js/obelisk/perspective-prism.js): a square viewport where the
    QR sits in the other artwork modals, showing the prism in 3D — drag it
-   to turn the model any way round, and scroll or pinch to zoom — and to its right three sliders: the scan height
+   to turn the model any way round, and scroll or pinch to zoom; two
+   round buttons in its bottom right corner, as the main view's, glide it
+   back to the starting view (↻) or to the scan point, straight above the
+   ridge where the QR resolves (the finder brackets) — and to its right
+   three sliders: the scan height
    (above the ridge), the ridge length and the prism's height, and a
    Reset button that returns the shape and the view to how they started.
    Its base stays 21cm x 16cm. The shape is kept by assets/js/obelisk/
@@ -27,6 +31,7 @@ import {
   buildPerspectivePrism,
   reshapePerspectivePrism,
   disposePerspectivePrism,
+  updateScanCue,
 } from "../assets/js/obelisk/perspective-prism.js";
 import { LIMITS, getShape, setShape, onShapeChange } from "../assets/js/obelisk/prism-shape.js";
 
@@ -34,6 +39,8 @@ const copy = {
   title: "Distqrted",
   stageLabel: "The DISTQRTED prism in 3D, with sliders to reshape it",
   reset: "Reset",
+  home: "Reset view",
+  scan: "Scan view: straight above the prism, where the QR code resolves",
   body: [
     "QR codes are made to be robust, scannable from any angle. Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
   ],
@@ -50,9 +57,9 @@ const SLIDERS = [
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
    range inputs and the button inside the <canvas> are its fallback
    content: never drawn, but focusable (arrow keys move the inputs) and
-   read by screen readers; the canvas draws them as the sliders and the
-   Reset button, dragging a drawn slider moves its input, and the drawn
-   button clicks its button.
+   read by screen readers; the canvas draws them as the sliders, the
+   Reset button and the view's two buttons, dragging a drawn slider moves
+   its input, and a drawn button clicks its button.
    ------------------------------------------------------------------------ */
 export default function render({ titleId }) {
   const shape = getShape();
@@ -71,6 +78,8 @@ export default function render({ titleId }) {
             </label>`;
             }).join("")}
             <button type="button" data-reset>${copy.reset}</button>
+            <button type="button" data-view="scan" aria-label="${copy.scan}"></button>
+            <button type="button" data-view="home" aria-label="${copy.home}"></button>
           </canvas>
         </div>
       </div>
@@ -95,12 +104,25 @@ export default function render({ titleId }) {
    aims at the prism's middle, from as far as fits the tallest prism the
    sliders allow (times the zoom, within ZOOM_RANGE), so a change in size
    shows as one. It starts turned by VIEW_YAW and VIEW_PITCH.
+
+   home() and scan() glide over GLIDE_MS (as the main view's reset) to the
+   starting view, or to the scan point: straight down from viewDist above
+   the ridge, the face's up on screen's up, where the warped QR resolves
+   and the scan cue's brackets show (perspective-prism.js). That can be
+   nearer than ZOOM_RANGE allows, so zooming in stops at wherever the
+   camera already is; and close in, the field of view widens past
+   VIEW_FOV to keep a FIT_CM square on the base in view, so the whole QR
+   is on screen from any scan height. Turning or zooming stops a glide.
    ------------------------------------------------------------------------ */
 const VIEW_FOV = 30; // deg
 const VIEW_YAW = 0.6; // rad, to start: turned to the right
 const VIEW_PITCH = 0.35; // and looking down a little
 const TURN_SPEED = 3; // rad per viewport side dragged
 const ZOOM_RANGE = [0.3, 2.5]; // the camera's distance, as a share of the fit
+const GLIDE_MS = 900;
+// the QR is never longer than the base; this leaves it clear of the
+// view's buttons
+const FIT_CM = PRISM.L * 1.75;
 const CM = 0.01;
 
 function makeView() {
@@ -131,7 +153,7 @@ function makeView() {
   const target = new THREE.Vector3();
   const radius = Math.hypot(PRISM.W / 2, PRISM.L / 2, LIMITS.H.max / 2) * CM;
   const distance = (radius / Math.sin((VIEW_FOV * Math.PI) / 360)) * 1.05;
-  const camera = new THREE.PerspectiveCamera(VIEW_FOV, 1, distance / 20, distance * 4);
+  const camera = new THREE.PerspectiveCamera(VIEW_FOV, 1, distance / 100, distance * 4);
 
   // the camera's orientation; it sits zoom x distance back along its +z
   const look = new THREE.PerspectiveCamera();
@@ -147,10 +169,29 @@ function makeView() {
   const axis = new THREE.Vector3();
   const spin = new THREE.Quaternion();
   const background = new THREE.Color();
+  // the glide under way: { from, to, zoomFrom, zoomTo, t0 }
+  let glide = null;
+  let animating = false; // a glide or the scan cue wants another frame
+  let lastRender = 0;
+
+  function glideTo(to, zoomTo) {
+    glide = { from: orient.clone(), to, zoomFrom: zoom, zoomTo, t0: performance.now() };
+  }
+  // one frame of the glide, eased in and out
+  function applyGlide(now) {
+    if (!glide) return false;
+    const k = Math.min(1, (now - glide.t0) / GLIDE_MS);
+    const e = k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2;
+    orient.slerpQuaternions(glide.from, glide.to, e);
+    zoom = THREE.MathUtils.lerp(glide.zoomFrom, glide.zoomTo, e);
+    if (k === 1) glide = null;
+    return true;
+  }
 
   return {
     // turns by dx, dy (shares of the viewport's side)
     turn(dx, dy) {
+      glide = null;
       for (const [x, y, angle] of [[0, 1, -dx], [1, 0, -dy]]) {
         axis.set(x, y, 0).applyQuaternion(orient);
         orient.premultiply(spin.setFromAxisAngle(axis, angle * TURN_SPEED));
@@ -158,22 +199,41 @@ function makeView() {
       orient.normalize();
     },
     zoomBy(f) {
-      zoom = THREE.MathUtils.clamp(zoom * f, ...ZOOM_RANGE);
+      glide = null;
+      zoom = THREE.MathUtils.clamp(zoom * f, Math.min(ZOOM_RANGE[0], zoom), Math.max(ZOOM_RANGE[1], zoom));
     },
     moved: () => zoom !== 1 || !orient.equals(start),
-    home() {
-      orient.copy(start);
-      zoom = 1;
+    home: () => glideTo(start, 1),
+    // the camera's own +z is the face's +z, so no turn at all looks
+    // straight down at it with its up on screen's up
+    scan() {
+      const { H, viewDist } = prism.userData.shape;
+      glideTo(new THREE.Quaternion(), ((H / 2 + viewDist) * CM) / distance);
     },
+    animating: () => animating,
     reshape: (shape) => reshapePerspectivePrism(prism, shape),
     // renders at px x px device pixels on the colour bg; returns the image
     // to copy
     render(px, bg) {
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - lastRender) / 1000);
+      lastRender = now;
+      const gliding = applyGlide(now);
       if (renderer.domElement.width !== px) renderer.setSize(px, px, false);
       renderer.setClearColor(background.set(bg));
       target.z = (prism.userData.shape.H / 2) * CM;
       camera.quaternion.copy(orient);
       camera.position.set(0, 0, distance * zoom).applyQuaternion(orient).add(target);
+      // close in, widen to keep FIT_CM on the base in view
+      const toBase = distance * zoom + target.z;
+      const fov = Math.max(VIEW_FOV, THREE.MathUtils.radToDeg(2 * Math.atan((FIT_CM * CM) / 2 / toBase)));
+      if (camera.fov !== fov) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+      camera.updateMatrixWorld();
+      prism.updateMatrixWorld();
+      animating = updateScanCue(prism, camera, dt) || gliding;
       renderer.render(scene, camera);
       return renderer.domElement;
     },
@@ -197,7 +257,9 @@ function makeView() {
    from PANEL_PAD into their section to QR_MARGIN short of the canvas's
    right, so the two sides' margins match; then the Reset button, centred
    across the sliders; where the stack is taller than the canvas
-   (on a phone), it all shrinks to fit.
+   (on a phone), it all shrinks to fit. The view's buttons stack in its
+   bottom right corner, scan above home, ICON_INSET in, as the main view's
+   (white, their symbols navy), shrunk to ICON_MAX of a small view's side.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the view's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the view, inside its section (rem)
@@ -211,6 +273,11 @@ const TRACK_W = 4; // px
 const THUMB_STROKE = 1.5; // px
 const BUTTON_H = 2; // rem
 const BUTTON_PAD = 0.875; // the button's text to its sides (rem)
+const ICON_SIZE = 2.5; // the view's buttons (rem), as the main view's
+const ICON_GAP = 0.5; // between them (rem)
+const ICON_INSET = 0.75; // from the view's edges (rem)
+const ICON_MAX = 0.16; // a button's largest share of the view's side
+const VIEW_BUTTONS = ["scan", "home"]; // top to bottom
 
 // 10 -> "10 cm", 7.5 -> "7.5 cm"
 const cm = (v) => `${Number(v.toFixed(1))} cm`;
@@ -219,7 +286,11 @@ export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
   const inputs = canvas ? SLIDERS.map(({ key }) => canvas.querySelector(`input[data-dim="${key}"]`)) : [];
   const resetButton = canvas && canvas.querySelector("button[data-reset]");
-  if (!canvas || inputs.some((input) => !input) || !resetButton) return null;
+  const viewButtons = canvas
+    ? Object.fromEntries(VIEW_BUTTONS.map((name) => [name, canvas.querySelector(`button[data-view="${name}"]`)]))
+    : {};
+  if (!canvas || inputs.some((input) => !input) || !resetButton || VIEW_BUTTONS.some((n) => !viewButtons[n]))
+    return null;
   const ctx = canvas.getContext("2d");
   // dragging the view or a slider on a touch screen mustn't pan or zoom
   canvas.style.touchAction = "none";
@@ -232,14 +303,17 @@ export function mount(root) {
   let square = { x: 0, y: 0, size: 0 };
   let rows = []; // per slider: { labelY, x0, x1, y }, CSS px; track x0..x1 at y
   let button = { x: 0, y: 0, w: 0, h: 0 };
+  let icons = {}; // the view's buttons by name: { x, y, size }, CSS px
   let unit = 0; // rem, shrunk to fit
   let shape = getShape();
   // the drag under way: { kind: "view" } or { kind: "slider", i }
   let drag = null;
   // the pointers turning (one) or pinching (two) the view: id -> [x, y]
   const viewPointers = new Map();
-  let hover = null; // what the pointer is over: "view", "button", a slider's index
-  let focus = null; // the focused fallback: "button", a slider's index
+  // what the pointer is over: "view", "button", a view button's name, a
+  // slider's index
+  let hover = null;
+  let focus = null; // the focused fallback: "button", a view button's name, a slider's index
 
   const css = (name) => getComputedStyle(canvas).getPropertyValue(name).trim();
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -251,6 +325,18 @@ export function mount(root) {
     const margin = QR_MARGIN * r;
     const size = Math.max(0, Math.min(height, section) - 2 * margin);
     square = { x: margin, y: (height - size) / 2, size };
+
+    const iconSize = Math.min(ICON_SIZE * r, size * ICON_MAX);
+    const iconScale = iconSize / (ICON_SIZE * r);
+    const iconX = square.x + size - ICON_INSET * r * iconScale - iconSize;
+    const iconBottom = square.y + size - ICON_INSET * r * iconScale;
+    icons = Object.fromEntries(
+      VIEW_BUTTONS.map((name, i) => {
+        const fromBottom = VIEW_BUTTONS.length - i;
+        const y = iconBottom - fromBottom * iconSize - (fromBottom - 1) * ICON_GAP * r * iconScale;
+        return [name, { x: iconX, y, size: iconSize }];
+      }),
+    );
 
     const rowH = (FONT_SIZE * LINE_HEIGHT + LABEL_GAP + 2 * THUMB_R) * r;
     const stackH = SLIDERS.length * rowH + SLIDERS.length * ROW_GAP * r + BUTTON_H * r;
@@ -291,6 +377,57 @@ export function mount(root) {
     invalidate();
   }
 
+  // a view button: a white circle with a soft shadow, as the main view's
+  function drawIcon(name) {
+    const { x, y, size } = icons[name];
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const navy = css("--navy") || "#112777";
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = size * 0.35;
+    ctx.shadowOffsetY = size * 0.1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.restore();
+    if (hover === name) {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = css("--accent");
+      ctx.stroke();
+    }
+    ctx.fillStyle = ctx.strokeStyle = navy;
+    if (name === "home") {
+      // ↻, in the body face, bold, as the main view's
+      ctx.font = `700 ${size / 2}px ${css("--font") || "sans-serif"}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("↻", cx, cy);
+    } else {
+      // a QR finder's four corner brackets
+      const h = size * 0.22; // the frame's half side
+      const arm = h * 0.55;
+      ctx.lineWidth = Math.max(1.5, size * 0.055);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        ctx.moveTo(cx + sx * h, cy + sy * (h - arm));
+        ctx.lineTo(cx + sx * h, cy + sy * h);
+        ctx.lineTo(cx + sx * (h - arm), cy + sy * h);
+      }
+      ctx.stroke();
+    }
+    if (focus === name) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, size / 2 + 3, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = css("--accent");
+      ctx.stroke();
+    }
+  }
+
   const share = (i) => {
     const { min, max } = LIMITS[SLIDERS[i].key];
     return (shape[SLIDERS[i].key] - min) / (max - min);
@@ -310,6 +447,7 @@ export function mount(root) {
         ctx.fillStyle = bg;
         ctx.fillRect(x, y, px / dpr, px / dpr);
       }
+      if (view) VIEW_BUTTONS.forEach(drawIcon);
     }
 
     const thumbR = THUMB_R * unit;
@@ -385,6 +523,7 @@ export function mount(root) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     draw();
+    if (view?.animating()) invalidate();
   }
 
   function invalidate() {
@@ -424,9 +563,17 @@ export function mount(root) {
     const rect = canvas.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
-  // what's under the pointer: a slider's index, "button", "view", or null
+  // what's under the pointer: a slider's index, "button", a view button's
+  // name, "view", or null
   function hitAt(e) {
     const [x, y] = local(e);
+    if (view) {
+      const name = VIEW_BUTTONS.find((n) => {
+        const { x: ix, y: iy, size } = icons[n];
+        return Math.hypot(x - ix - size / 2, y - iy - size / 2) <= size / 2;
+      });
+      if (name) return name;
+    }
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h)
       return "button";
     const reach = 1.6 * THUMB_R * unit;
@@ -448,6 +595,7 @@ export function mount(root) {
     if (drag) canvas.style.cursor = drag.kind === "view" ? "grabbing" : "pointer";
     else if (hover === "view") canvas.style.cursor = "grab";
     else if (hover === "button") canvas.style.cursor = original() ? "" : "pointer";
+    else if (VIEW_BUTTONS.includes(hover)) canvas.style.cursor = "pointer";
     else canvas.style.cursor = typeof hover === "number" ? "pointer" : "";
   }
 
@@ -458,7 +606,8 @@ export function mount(root) {
   const onPointerDown = (e) => {
     const hit = hitAt(e);
     hover = hit;
-    if (hit === null || hit === "button") return; // the button goes on pointerup
+    // the buttons go on pointerup
+    if (hit === null || hit === "button" || VIEW_BUTTONS.includes(hit)) return;
     if (hit === "view") {
       if (drag?.kind === "slider") return;
       viewPointers.set(e.pointerId, local(e));
@@ -507,6 +656,8 @@ export function mount(root) {
       canvas.releasePointerCapture(e.pointerId);
     } else if (e.type === "pointerup" && hit === "button" && hover === "button") {
       resetButton.click();
+    } else if (e.type === "pointerup" && VIEW_BUTTONS.includes(hit) && hover === hit) {
+      viewButtons[hit].click();
     }
     hover = hit;
     setCursor();
@@ -528,10 +679,16 @@ export function mount(root) {
   };
   const onClick = (e) => {
     if (e.target === resetButton) reset();
+    else if (e.target === viewButtons.home) view?.home();
+    else if (e.target === viewButtons.scan) view?.scan();
+    else return;
+    invalidate();
   };
   const onFocus = (e) => {
     const i = inputs.indexOf(e.target);
-    focus = e.type !== "focusin" ? null : e.target === resetButton ? "button" : i >= 0 ? i : null;
+    const name = VIEW_BUTTONS.find((n) => viewButtons[n] === e.target);
+    focus =
+      e.type !== "focusin" ? null : e.target === resetButton ? "button" : name ? name : i >= 0 ? i : null;
     invalidate();
   };
 
