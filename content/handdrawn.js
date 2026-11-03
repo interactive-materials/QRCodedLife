@@ -14,7 +14,9 @@
    modules are letters, with the words hidden in it listed to its right
    under a heading. Tapping the place a word is hidden in the QR finds it:
    its box is drawn on the QR and it's crossed out in the list. The list
-   itself isn't tappable — the words have to be found in the QR.
+   itself isn't tappable — the words have to be found in the QR. A
+   Reset button under the list, as tiles-qr.js's Remove all, clears the
+   finds.
 
    A round button in the QR's bottom right corner, as the angle modal's,
    expands it: the stage takes the whole modal (the rule and the copy
@@ -33,6 +35,7 @@ import {
   drawQrossword,
   getFound,
   findWord,
+  resetFound,
   onFoundChange,
 } from "../assets/js/obelisk/qrossword.js";
 
@@ -42,6 +45,7 @@ const copy = {
   listHeading: "Find the MRT stations:",
   expand: "Expand the word search",
   collapse: "Shrink the word search",
+  reset: "Reset",
   body: [
     "QR code is often computer-generated and unreadable to humans.",
     "QROSSWORD replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting while allowing readable messages to be encoded inside the QR code",
@@ -71,8 +75,9 @@ const ICON_RADIUS = 2.73 / 24.05;
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
    list inside the <canvas> is its fallback content: never drawn, but read
-   by screen readers; a found word's item says so. The button is the
-   expand button's fallback: focusable, and clicked by the drawn one.
+   by screen readers; a found word's item says so. The buttons are the
+   expand and Reset buttons' fallbacks: focusable, and clicked by the
+   drawn ones.
    ------------------------------------------------------------------------ */
 const itemText = (i, isFound) => `${WORDS[i].word}${isFound ? " (found)" : ""}`;
 
@@ -89,6 +94,7 @@ export default function render({ titleId }) {
               ${getFound().map((isFound, i) => `
               <li data-word="${i}">${itemText(i, isFound)}</li>`).join("")}
             </ul>
+            <button type="button" data-reset>${copy.reset}</button>
             <button type="button" data-expand aria-pressed="false" aria-label="${copy.expand}"></button>
           </canvas>
         </div>
@@ -124,6 +130,10 @@ export default function render({ titleId }) {
    together; where they're
    taller than it, the QR shrinks to leave the list room.
 
+   The Reset button, in the list's text, sits under the list's columns,
+   centred across the list, beside the QR or under it alike; beside it,
+   the columns are shortened to leave the button room.
+
    The expand button (expandIcon, or minimiseIcon while expanded) sits in
    the QR's bottom right corner, ICON_INSET in, ICON_SIZE across; both
    are shares of the QR's side, so it scales with the QR.
@@ -138,13 +148,18 @@ const LIST_GAP = 1; // expanded: the QR to the list under it (rem)
 // small QR, smaller to minimise the expanded one
 const ICON_SIZE = { expand: 0.125, minimise: 0.08 };
 const ICON_INSET = 0.04; // from the QR's edges, as a share of its side
+// the Reset button, as tiles-qr.js's Remove all, in em of the list's text
+const BUTTON_H = 2.5; // em
+const BUTTON_PAD = 1.1; // the button's text to its sides (em)
+const BUTTON_GAP = 0.25; // the last word to the button, at least (rem)
 
 export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
   const items = canvas ? [...canvas.querySelectorAll("li[data-word]")] : [];
   const expandButton = canvas && canvas.querySelector("button[data-expand]");
+  const resetButton = canvas && canvas.querySelector("button[data-reset]");
   const layoutEl = root.querySelector(".modal__layout");
-  if (!canvas || !items.length || !expandButton || !layoutEl) return null;
+  if (!canvas || !items.length || !expandButton || !resetButton || !layoutEl) return null;
   const ctx = canvas.getContext("2d");
   const dialog = root.closest("dialog");
 
@@ -156,28 +171,33 @@ export function mount(root) {
   let heading = { x: 0, y: 0, h: 0 }; // the list's heading row, CSS px
   let rows = []; // [{ x, y, h }] per word: its row in the list, CSS px
   let icon = { x: 0, y: 0, size: 0 }; // the expand button, CSS px
+  let button = { x: 0, y: 0, w: 0, h: 0 }; // the Reset button, CSS px
   let found = getFound();
   let expanded = false;
-  let hover = false; // the pointer is over the expand button
-  let focus = false; // the expand button's fallback is focused
+  let hover = null; // what the pointer is over: "icon", "button" or null
+  let focus = null; // the focused fallback button: "icon", "button" or null
 
   const css = (name) => getComputedStyle(canvas).getPropertyValue(name).trim();
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
   const font = (px, weight = 400) => `${weight} ${px}px ${css("--font") || "sans-serif"}`;
 
-  // the list at font size px: its columns and overall size. Beside the
-  // QR, a column runs the canvas's height; under it (given the room
-  // across), there are as many columns as fit across
+  // the list at font size px: its columns, overall size and the Reset
+  // button, which goes under the columns, BUTTON_GAP down. Beside the QR,
+  // a column runs the canvas's height less the button's; under it (given
+  // the room across), there are as many columns as fit across
   function measureList(px, across = 0) {
     const lineH = px * LINE_HEIGHT;
+    const buttonGap = BUTTON_GAP * rem();
     ctx.font = font(px, 700);
     const headingW = ctx.measureText(copy.listHeading).width;
+    ctx.font = font(px, 500);
+    const button = { w: ctx.measureText(copy.reset).width + 2 * BUTTON_PAD * px, h: BUTTON_H * px };
     ctx.font = font(px);
     const colW = Math.max(...WORDS.map(({ word }) => ctx.measureText(word).width));
     const colGap = COLUMN_GAP * px;
     const perColumn = across
       ? Math.ceil(WORDS.length / Math.max(1, Math.floor((across + colGap) / (colW + colGap))))
-      : Math.max(1, Math.floor(height / lineH) - 1);
+      : Math.max(1, Math.floor((height - buttonGap - button.h) / lineH) - 1);
     const columns = Math.ceil(WORDS.length / perColumn);
     // the last column only as wide as its own longest word, so the list
     // ends where its text does
@@ -189,19 +209,21 @@ export function mount(root) {
       lineH,
       perColumn,
       colStep: colW + colGap,
-      w: Math.max(headingW, (columns - 1) * (colW + colGap) + lastW),
-      h: (Math.min(WORDS.length, perColumn) + 1) * lineH,
+      button,
+      w: Math.max(headingW, button.w, (columns - 1) * (colW + colGap) + lastW),
+      h: (Math.min(WORDS.length, perColumn) + 1) * lineH + buttonGap + button.h,
     };
   }
 
-  // lays out the QR, the list and the expand button; returns the list's
-  // font size (px)
+  // lays out the QR, the list, the expand button and the Reset button;
+  // returns the list's font size (px)
   function layout() {
     const r = rem();
     const margin = QR_MARGIN * r;
     let list;
     let listX;
     let listY;
+    let listW; // the list's width as laid out
     if (expanded) {
       const across = Math.max(0, width - 2 * margin);
       list = measureList(FONT_SIZE * r, across);
@@ -213,19 +235,30 @@ export function mount(root) {
       const top = (height - size - gap - list.h) / 2;
       qr = { x: (width - size) / 2, y: top, size };
       // the list centred across, its text still left-aligned within it
-      listX = (width - Math.min(across, list.w)) / 2;
+      listW = Math.min(across, list.w);
+      listX = (width - listW) / 2;
       listY = top + size + gap;
     } else {
       const section = width * QR_SECTION;
       const size = Math.max(0, Math.min(height, section) - 2 * margin);
       const room = width - section - margin;
-      // shrinking the text can free a row per column, so close in on a fit
+      // the largest text, up to FONT_SIZE, that fits the room: shrinking
+      // it frees rows per column, and so maybe a column, so a scale to fit
+      // overshoots; search instead
       list = measureList(FONT_SIZE * r);
-      for (let k = 0; k < 4 && list.w > room && room > 0; k++) {
-        list = measureList(list.px * (room / list.w));
+      if (list.w > room && room > 0) {
+        let lo = 0;
+        let hi = list.px;
+        for (let k = 0; k < 12; k++) {
+          const next = measureList((lo + hi) / 2);
+          if (next.w <= room) lo = next.px;
+          else hi = next.px;
+        }
+        list = measureList(lo || hi);
       }
       qr = { x: margin, y: (height - size) / 2, size };
-      listX = width - margin - Math.min(room, list.w);
+      listW = Math.min(room, list.w);
+      listX = width - margin - listW;
       listY = (height - list.h) / 2;
     }
     heading = { x: listX, y: listY, h: list.lineH };
@@ -234,6 +267,13 @@ export function mount(root) {
       y: listY + (1 + (i % list.perColumn)) * list.lineH,
       h: list.lineH,
     }));
+
+    // the Reset button at the foot of the list, centred across under it
+    button = {
+      x: listX + (listW - list.button.w) / 2,
+      y: listY + list.h - list.button.h,
+      ...list.button,
+    };
 
     const iconSize = qr.size * ICON_SIZE[expanded ? "minimise" : "expand"];
     const inset = qr.size * ICON_INSET;
@@ -259,8 +299,34 @@ export function mount(root) {
       ctx.strokeStyle = css("--accent");
       ctx.stroke();
     };
-    if (hover) outline(0.5, 1);
-    if (focus) outline(3, 2);
+    if (hover === "icon") outline(0.5, 1);
+    if (focus === "icon") outline(3, 2);
+  }
+
+  // the Reset button, drawn as tiles-qr.js's Remove all: muted while
+  // there's nothing to reset
+  function drawButton(px) {
+    const empty = !found.some(Boolean);
+    const { x, y, w, h } = button;
+    ctx.beginPath();
+    ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, h / 2);
+    ctx.fillStyle = hover === "button" && !empty ? css("--bg") : css("--bg-elevated");
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = empty ? css("--border") : css("--fg");
+    ctx.stroke();
+    ctx.font = font(px, 500);
+    ctx.fillStyle = empty ? css("--fg-muted") : css("--fg");
+    ctx.textAlign = "center";
+    ctx.fillText(copy.reset, x + w / 2, y + h / 2);
+    ctx.textAlign = "left";
+    if (focus === "button") {
+      ctx.beginPath();
+      ctx.roundRect(x - 3, y - 3, w + 6, h + 6, h / 2 + 3);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = css("--accent");
+      ctx.stroke();
+    }
   }
 
   // a word's box on the QR, in CSS px
@@ -303,6 +369,8 @@ export function mount(root) {
         ctx.stroke();
       }
     });
+
+    drawButton(px);
   }
 
   function frame() {
@@ -350,11 +418,13 @@ export function mount(root) {
     return hits.find((i) => !found[i]) ?? hits[0] ?? -1;
   };
 
-  const onIcon = (e) => {
-    if (!qrossword) return false;
+  // the button under the pointer: "icon", "button" or null
+  const buttonAt = (e) => {
     const [x, y] = local(e);
-    const { x: ix, y: iy, size } = icon;
-    return x >= ix && x <= ix + size && y >= iy && y <= iy + size;
+    if (qrossword && inside({ x: icon.x, y: icon.y, w: icon.size, h: icon.size }, x, y))
+      return "icon";
+    if (inside(button, x, y)) return "button";
+    return null;
   };
 
   // expanding grows the stage over the whole modal (.is-expanded, in
@@ -368,7 +438,9 @@ export function mount(root) {
   }
 
   const onPointerUp = (e) => {
-    if (onIcon(e)) return expandButton.click();
+    const over = buttonAt(e);
+    if (over === "icon") return expandButton.click();
+    if (over === "button") return resetButton.click();
     const i = wordAt(e);
     if (i < 0 || found[i]) return;
     canvas.style.cursor = "";
@@ -376,9 +448,17 @@ export function mount(root) {
   };
   const onClick = (e) => {
     if (e.target === expandButton) setExpanded(!expanded);
+    else if (e.target === resetButton) resetFound();
   };
   const onFocus = (e) => {
-    focus = e.type === "focusin" && e.target === expandButton;
+    focus =
+      e.type !== "focusin"
+        ? null
+        : e.target === expandButton
+          ? "icon"
+          : e.target === resetButton
+            ? "button"
+            : null;
     invalidate();
   };
   // Escape shrinks an expanded word search before it closes the modal
@@ -393,21 +473,22 @@ export function mount(root) {
     found.forEach((isFound, i) => (items[i].textContent = itemText(i, isFound)));
     invalidate();
   });
-  // the pointer cursor shows only over the expand button or a box still
-  // to find
+  // the pointer cursor shows only over the expand button, the Reset
+  // button while there's something to reset, or a box still to find
   const onPointerMove = (e) => {
-    const over = onIcon(e);
+    const over = buttonAt(e);
     if (over !== hover) {
       hover = over;
       invalidate();
     }
     const i = over ? -1 : wordAt(e);
-    canvas.style.cursor = over || (i >= 0 && !found[i]) ? "pointer" : "";
+    const live = over === "icon" || (over === "button" && found.some(Boolean));
+    canvas.style.cursor = live || (i >= 0 && !found[i]) ? "pointer" : "";
   };
   const onPointerLeave = () => {
     canvas.style.cursor = "";
     if (hover) {
-      hover = false;
+      hover = null;
       invalidate();
     }
   };

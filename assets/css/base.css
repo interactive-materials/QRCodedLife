@@ -220,7 +220,7 @@ dialog.modal {
   --modal-gap: 1.5rem;
   --modal-text-gap: 0.5rem; /* a heading (title or part) to its paragraph */
   /* a picture's caption, and a placeholder's labels: white, greyed */
-  --caption: rgba(255, 255, 255, 0.7);
+  --caption: rgba(255, 255, 255, 0.85);
 }
 
 /* the QOLORFUL modal's slider greys the whole site:

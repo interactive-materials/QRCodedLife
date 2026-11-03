@@ -16,6 +16,7 @@
                            of the found words
      getFound()            a copy of found: a boolean per word
      findWord(i)           mark word i found and announce it
+     resetFound()          mark every word not found and announce it
      onFoundChange(fn)     call fn(found) on every change; returns a
                            function that stops it
    ========================================================================== */
@@ -191,7 +192,17 @@ export function getFound() {
 
 export function findWord(i) {
   if (!(i in found) || found[i]) return;
-  found = found.map((f, j) => f || j === i);
+  setFound(found.map((f, j) => f || j === i));
+}
+
+export function resetFound() {
+  if (!found.some(Boolean)) return;
+  setFound(WORDS.map(() => false));
+}
+
+// store next and announce it
+function setFound(next) {
+  found = next;
   try {
     localStorage.setItem(
       STORAGE_KEY,

@@ -13,8 +13,6 @@ import { placeholder } from "./modal-layout.js";
 const copy = {
   subtitle: "What makes a QR code scannable?",
   title: "QR Codes and Contrast",
-  // each paragraph's figure is a placeholder for now: a dashed box per
-  // panel, labelled with what goes there, and the caption under them
   body: [
     {
       text: "QR codes are commonly placed on a plain background. However, they can be scanned as long as they maintain sufficient contrast from their background.",
