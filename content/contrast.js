@@ -26,8 +26,8 @@ const copy = {
     {
       text: "Dark colored QR codes are best placed on a light colored background, while light colored QR codes are best placed on a dark colored background.",
       figure: {
-        srcs: [img("light-bg.png"), img("dark-bg.png")],
-        caption: "The same mirror QR code with a light background on the left and a dark background on the right.",
+        srcs: [img("dark-bg.png"), img("light-bg.png")],
+        caption: "The same mirror QR code with a dark background on the left and a light background on the right.",
       },
     },
   ],

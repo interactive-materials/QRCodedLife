@@ -46,6 +46,7 @@ import {
 import { getShape, onShapeChange } from "./prism-shape.js";
 import { PATTERN_SIZE, getPattern, onPatternChange } from "./floor-pattern.js";
 import { loadQrossword, drawQrossword, getFound, onFoundChange } from "./qrossword.js";
+import { STAMP_SRC, isStamped, onStampChange } from "./scam-stamps.js";
 import {
   VIEWS as LENS_VIEWS,
   QR_FRAC as LENS_QR_FRAC,
@@ -171,7 +172,10 @@ const F2_TILES_CAPTIONS = [[204, 601, 88, 23]];
 
 // face 2's rectangular panels, by qrId index (face2-(n+1)). art: the
 // panel is artwork images — a frame image filling the panel, optionally
-// with a QR image at qrBox [x, y, size] (mm from the panel's top-left).
+// with a QR image at qrBox [x, y, size] (mm from the panel's top-left),
+// and optionally a SCAM stamp shown while the scam modal's code `key` is
+// stamped (see scam-stamps.js), centred `at` and `width` wide (shares of
+// the panel), tilted `tilt` degrees anticlockwise.
 // card: the panel is a plain white card — corner radius in mm (0 =
 // square), with a QR at qrBox [x, y, size] (mm, the modules' extent): the
 // image at `qr` (qrFrac: share of its width that is modules, the rest
@@ -208,7 +212,12 @@ const F2_PANELS = [
   },
   {
     n: 5, x: 379.0, y: 1421.7, w: 168.5, h: 223.4, // scam
-    art: { frame: "totem-bg/artwork/SVG/Asset 6.svg" },
+    art: {
+      frame: "totem-bg/artwork/SVG/Asset 6.svg",
+      // centred as on the same sticker in the scam modal's picture
+      // (content/scam.js), but only over its QR: the panel is big enough
+      stamp: { key: "sticker", at: [0.5, 0.42], width: 0.85, tilt: 12 },
+    },
     captions: [[482, 1656, 68, 22]],
   },
 ];
@@ -727,18 +736,41 @@ function makeArtPanel(qrId, w, h, art) {
     panel.add(qr);
   }
 
+  // the stamp: a plane 1 unit square, sized to its art once loaded
+  let stampMat = null;
+  let stampMesh = null;
+  if (art.stamp) {
+    const { at, tilt } = art.stamp;
+    stampMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
+    stampMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), stampMat);
+    stampMesh.position.set(-w / 2 + at[0] * w, h / 2 - at[1] * h, 0.002);
+    stampMesh.rotation.z = (tilt * Math.PI) / 180;
+    stampMesh.visible = false;
+    panel.add(stampMesh);
+  }
+
   panel.visible = false;
   const ready = Promise.all([
     loadTexture(art.frame),
     art.qr ? loadTexture(art.qr, true) : null,
+    art.stamp ? loadTexture(STAMP_SRC, false, 1024) : null,
   ])
-    .then(([frameTex, qrTex]) => {
+    .then(([frameTex, qrTex, stampTex]) => {
       frameMat.map = frameTex;
       thickenArt(panel, frameTex);
       frameMat.needsUpdate = true;
       if (qrMat) {
         qrMat.map = qrTex;
         qrMat.needsUpdate = true;
+      }
+      if (stampMesh) {
+        const sw = art.stamp.width * w;
+        stampMesh.scale.set(sw, (sw * stampTex.image.height) / stampTex.image.width, 1);
+        stampMat.map = stampTex;
+        stampMat.needsUpdate = true;
+        const show = () => (stampMesh.visible = isStamped(art.stamp.key));
+        show();
+        onStampChange(show);
       }
       panel.visible = true;
     })

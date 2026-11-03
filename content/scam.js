@@ -15,15 +15,33 @@
    over each of its three QR codes, placed as they are in scam-scene.svg.
    Tapping one lays a panel over the picture, saying whether that QR code
    is the scam and why; its × (or Escape) takes it away again.
+
+   Closing a scam QR code's answer stamps that code SCAM: the stamp
+   (scam-stamp.svg) is pressed onto the code's surface in the picture, in
+   its perspective (see placeStamps()) — once; reopening the answer leaves
+   it be. Which codes are stamped is kept by
+   assets/js/obelisk/scam-stamps.js, which the scam panel on the obelisk
+   follows, so the sticker's stamp shows there too. A Reset button under
+   the picture lifts every stamp off, here and there.
    ========================================================================== */
 
+import {
+  STAMP_SRC,
+  isStamped,
+  getStamped,
+  stamp,
+  resetStamps,
+  onStampChange,
+} from "../assets/js/obelisk/scam-stamps.js";
+
 const SCENE_SRC = new URL("../scam/assets/scam-scene.png", import.meta.url).href;
-const SCENE_RATIO = 2722 / 2046; // the picture's width / height
+const SCENE_RATIO = 2532 / 1904; // the picture's width / height
 
 const copy = {
   title: "Be Qareful",
   question: "Which one is the scam QR code?",
-  sceneLabel: "A shop with three QR codes: on the counter, on the door and on the window",
+  reset: "Reset",
+  sceneLabel: "A shop with three QR codes: on the counter, by the door and on the window",
   body: [
     "The ubiquitousness of the QR code often makes it easy for us to instinctively scan any QR code we see.",
     "However, there are QR codes that direct to harmful links or are made to mimic other QR code for malicious purposes.",
@@ -34,36 +52,60 @@ const copy = {
 /* ---- the QR codes -------------------------------------------------------
    Each one's button, as a share (%) of the picture: left, top, width,
    height. Its answer: whether it's the scam, a title and the copy.
+
+   A scam one also has its stamp: `key`, the name scam-stamps.js keeps it
+   by (the obelisk's scam panel shows the stamp of "sticker", the code it
+   is), and `surface`, the flat thing the stamp is pressed on — its
+   corners in the picture (% of it: top left, top right, bottom right,
+   bottom left), its own width and height (any unit; only their ratio
+   counts), and the stamp's centre (`at`, shares of the surface) and
+   width (share of the surface's width; well past the code's own, so the
+   stamp reads in the small picture). The stamp is tilted STAMP_TILT.
    ------------------------------------------------------------------------ */
+const STAMP_TILT = -12; // deg
 const CODES = [
   {
     label: "The Scan to Pay QR code on the counter",
-    box: [19.1, 58.5, 7.0, 17.6],
+    box: [9.5, 59.8, 11.4, 19.3],
     scam: false,
-    title: "Scan to Pay at the Counter",
+    title: "QR code for payment",
     body: [
-      "This QR code sits on the counter, right by the till, where the shop takes payment. It is printed on the shop's own stand, so it belongs there.",
-      "Even so, check the name your payment app shows before you pay: it should be the shop's.",
+      "This QR code sits on the counter and has the official SGQR logo. While it is usually safe to scan this QR code using payment apps, it is best practice to check that the shop's name shown is correct!"
     ],
   },
   {
-    label: "The membership poster's QR code on the door",
-    box: [76.25, 24.75, 8.75, 18.4],
-    scam: false,
-    title: "The Membership Poster",
-    body: [
-      "The poster is the shop's own, stuck on the door to face passers-by outside, which is why its text reads backwards from in here.",
-      "It asks you to download the shop's app. If its link takes you to an app, get it from the official app store and check the developer is the shop before installing; never install an app file straight from a QR code.",
-    ],
-  },
-  {
-    label: "The Scan to Pay QR code on the window",
-    box: [92.5, 31.5, 6.65, 12.1],
+    label: "The membership poster's QR code on the window",
+    box: [90.75, 30.7, 9.0, 19.8],
     scam: true,
-    title: "Scan to Pay on the Window",
+    title: "Never trust a QR code blindly",
+    // the phone frame round the poster's QR
+    key: "survey",
+    surface: {
+      corners: [[93.52, 36.55], [96.94, 36.55], [96.88, 42.8], [93.58, 42.86]],
+      size: [171, 238],
+      at: [0.5, 0.5],
+      width: 4.5,
+    },
     body: [
-      "A shop takes payment at its till, not on a window by the door. This sticker is away from the counter, doesn't match the shop's own Scan to Pay stand, and lists every payment app at once.",
-      "Fake payment QR codes are stuck up, or stuck over real ones, to send your money to someone else. To pay, scan the code at the till and check the name your payment app shows before confirming.",
+      "Nothing is free in the world, always be careful of any monetary promises. This QR code may lead you to phishing sites or ask you to download a malicious software. Only download apps from official sources and check the links before visiting any site."
+    ],
+  },
+  {
+    label: "The Scan to Pay QR code on the posters by the door",
+    box: [36.6, 36.6, 5.9, 11.2],
+    scam: true,
+    title: "Suspicious logo and placement",
+    // the sticker, the same art as the obelisk's scam panel: the stamp
+    // over its QR
+    key: "sticker",
+    surface: {
+      corners: [[36.61, 36.74], [42.6, 36.61], [42.5, 47.69], [36.67, 47.82]],
+      size: [476.78, 632.69],
+      at: [0.5, 0.42],
+      width: 2.6,
+    },
+    body: [
+      "While it is inside the shop, the QR code does not have the official logo and is placed on top of an unrelated poster. It may have been put there by people with malicious intents hoping to trick customers into paying to another entity instead of the shop."
     ],
   },
 ];
@@ -85,11 +127,19 @@ export default function render({ titleId }) {
           <div class="scam__scene">
             <div class="scam__picture" role="group" aria-label="${copy.sceneLabel}" style="--ratio: ${SCENE_RATIO}">
               <img src="${SCENE_SRC}" alt="" />
+              <div class="scam__stamps">
+                ${CODES.map(({ key, surface }) => surface ? `
+                <div class="scam__surface" data-surface="${key}">
+                  <div class="scam__stamp" data-stamp="${key}" ${isStamped(key) ? "" : "hidden"}
+                    style="left: ${surface.at[0] * 100}%; top: ${surface.at[1] * 100}%; width: ${surface.width * 100}%; --tilt: ${STAMP_TILT}deg"></div>
+                </div>` : "").join("")}
+              </div>
               ${CODES.map(({ label, box: [left, top, width, height] }, i) => `
               <button class="scam__code" type="button" data-code="${i}" aria-label="${label}"
                 style="left: ${left}%; top: ${top}%; width: ${width}%; height: ${height}%"></button>`).join("")}
             </div>
           </div>
+          <button class="scam__reset" type="button" data-reset ${getStamped().length ? "" : "disabled"}>${copy.reset}</button>
         </div>
       </div>
       <hr class="modal__rule" />
@@ -129,13 +179,20 @@ export function mount(root) {
   `;
   picture.append(answer);
   const answerText = answer.querySelector("[data-answer]");
+  const resetButton = stage.querySelector("[data-reset]");
+  const stamps = [...picture.querySelectorAll("[data-stamp]")];
+  loadStampArt().then((svg) => {
+    for (const el of stamps) el.innerHTML = svg;
+  });
+  let pending = null; // the open answer's stamp, pressed on when it closes
   const closeButton = answer.querySelector(".scam__answer-close");
   let opener = null; // the code button that opened it, refocused on close
 
   function show(button) {
     opener = button;
-    answerText.innerHTML = answerHtml(CODES[Number(button.dataset.code)]);
-    answerText.scrollTop = 0;
+    const code = CODES[Number(button.dataset.code)];
+    answerText.innerHTML = answerHtml(code);
+    pending = code.key || null;
     answer.hidden = false;
     closeButton.focus();
   }
@@ -145,10 +202,23 @@ export function mount(root) {
     answer.hidden = true;
     if (opener) opener.focus();
     opener = null;
+    if (pending) stamp(pending); // nothing if it's already stamped
+    pending = null;
   }
 
+  // while the answer's open, a click anywhere off it (the picture, a QR
+  // code, the question) closes it, as its × does
   const onClick = (e) => {
-    if (e.target.closest(".scam__answer-close")) return hide();
+    if (e.target.closest("[data-reset]")) {
+      pending = null;
+      hide();
+      resetStamps();
+      return;
+    }
+    if (!answer.hidden) {
+      if (e.target.closest(".scam__answer-close") || !answer.contains(e.target)) hide();
+      return;
+    }
     const button = e.target.closest("[data-code]");
     if (button) show(button);
   };
@@ -160,11 +230,96 @@ export function mount(root) {
     hide();
   };
 
+  // a stamp newly stamped is pressed on; one reset is lifted off (the
+  // pressing, played backwards) and then hidden
+  const showStamps = () => {
+    for (const el of stamps) {
+      const on = isStamped(el.dataset.stamp);
+      el.classList.remove("is-pressing", "is-lifting");
+      void el.offsetWidth; // so a class added again restarts its animation
+      if (on && el.hidden) {
+        el.hidden = false;
+        el.classList.add("is-pressing");
+      } else if (!on && !el.hidden) {
+        el.classList.add("is-lifting");
+      }
+    }
+    resetButton.disabled = !getStamped().length;
+  };
+  const onAnimationEnd = (e) => {
+    const el = e.target.closest("[data-stamp]");
+    if (!el) return;
+    if (el.classList.contains("is-lifting")) el.hidden = true;
+    el.classList.remove("is-pressing", "is-lifting");
+  };
+  const stopStamps = onStampChange(showStamps);
+
+  const place = () => placeStamps(picture);
+  const resize = new ResizeObserver(place);
+  resize.observe(picture);
+  place();
+
   stage.addEventListener("click", onClick);
+  picture.addEventListener("animationend", onAnimationEnd);
   if (dialog) dialog.addEventListener("keydown", onKeydown);
   return () => {
+    // the modal closing with an answer open: its stamp is still due
+    if (pending) stamp(pending);
     stage.removeEventListener("click", onClick);
+    picture.removeEventListener("animationend", onAnimationEnd);
     if (dialog) dialog.removeEventListener("keydown", onKeydown);
+    stopStamps();
+    resize.disconnect();
     answer.remove();
   };
+}
+
+/* ---- the stamps ---------------------------------------------------------
+   The stamp's SVG, inlined so its text has the page's DM Sans (read once).
+   Each surface is a box of its own proportions, as wide as the surface's
+   top edge, mapped onto its corners in the picture with a matrix3d (the
+   projective map of a rectangle onto a quadrilateral), so the stamp, laid
+   flat in it, takes the surface's perspective. Placed again whenever the
+   picture changes size.
+   ------------------------------------------------------------------------ */
+let stampArtLoad = null;
+function loadStampArt() {
+  stampArtLoad ??= fetch(new URL(`../${STAMP_SRC}`, import.meta.url))
+    .then((res) => (res.ok ? res.text() : Promise.reject(new Error(`${res.status} ${STAMP_SRC}`))))
+    .catch((err) => {
+      console.warn("scam: could not load the stamp", err);
+      stampArtLoad = null;
+      return "";
+    });
+  return stampArtLoad;
+}
+
+function placeStamps(picture) {
+  const W = picture.clientWidth;
+  const H = picture.clientHeight;
+  if (!W || !H) return;
+  for (const el of picture.querySelectorAll("[data-surface]")) {
+    const { surface } = CODES.find(({ key }) => key === el.dataset.surface);
+    const corners = surface.corners.map(([x, y]) => [(x / 100) * W, (y / 100) * H]);
+    const [sw, sh] = surface.size;
+    const w = Math.hypot(corners[1][0] - corners[0][0], corners[1][1] - corners[0][1]);
+    const h = (w * sh) / sw;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    el.style.transform = rectToQuad(w, h, corners);
+  }
+}
+
+// the CSS matrix3d taking a w x h box (origin top left) onto the corners
+// [top left, top right, bottom right, bottom left]
+function rectToQuad(w, h, [[x0, y0], [x1, y1], [x2, y2], [x3, y3]]) {
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+  const det = dx1 * dy2 - dx2 * dy1;
+  const g = (dx3 * dy2 - dx2 * dy3) / det;
+  const k = (dx1 * dy3 - dx3 * dy1) / det;
+  // the unit square onto the corners, after the box onto the unit square
+  const a = (x1 - x0 + g * x1) / w, b = (x3 - x0 + k * x3) / h;
+  const d = (y1 - y0 + g * y1) / w, e = (y3 - y0 + k * y3) / h;
+  return `matrix3d(${[a, d, 0, g / w, b, e, 0, k / h, 0, 0, 1, 0, x0, y0, 0, 1].join(",")})`;
 }

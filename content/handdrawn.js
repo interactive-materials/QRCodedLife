@@ -21,7 +21,8 @@
    A round button in the QR's bottom right corner, as the angle modal's,
    expands it: the stage takes the whole modal (the rule and the copy
    go), the QR fills its width and the list runs under it. The button,
-   or Escape, shrinks it back.
+   Escape, or the modal's × (or backdrop) shrinks it back; only then does
+   the × close the modal.
 
    The QR, its words and the finds come from assets/js/obelisk/qrossword.js,
    which the obelisk's QROSSWORD panel shares, so a word found here shows
@@ -468,6 +469,14 @@ export function mount(root) {
     e.preventDefault();
     setExpanded(false);
   };
+  // so does the modal's × (or a click on the backdrop): caught on the way
+  // down, before modal.js's own listeners close the modal
+  const onCloseClick = (e) => {
+    if (!expanded) return;
+    if (e.target !== dialog && !e.target.closest("#qr-modal-close")) return;
+    e.stopPropagation();
+    setExpanded(false);
+  };
   const unsubscribe = onFoundChange((next) => {
     found = next;
     found.forEach((isFound, i) => (items[i].textContent = itemText(i, isFound)));
@@ -500,6 +509,7 @@ export function mount(root) {
   canvas.addEventListener("focusin", onFocus);
   canvas.addEventListener("focusout", onFocus);
   dialog?.addEventListener("keydown", onKeyDown);
+  dialog?.addEventListener("click", onCloseClick, true);
   // colours come from CSS tokens
   const scheme = matchMedia("(prefers-color-scheme: dark)");
   scheme.addEventListener("change", invalidate);
@@ -516,6 +526,7 @@ export function mount(root) {
     canvas.removeEventListener("focusin", onFocus);
     canvas.removeEventListener("focusout", onFocus);
     dialog?.removeEventListener("keydown", onKeyDown);
+    dialog?.removeEventListener("click", onCloseClick, true);
     width = height = 0;
   };
 }

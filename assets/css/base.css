@@ -497,7 +497,9 @@ dialog.modal[open]::backdrop {
 .scam {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  /* the question close over the picture, as the QROSSWORD list under
+     its heading */
+  gap: 0.25rem;
   padding: var(--modal-gap) 0;
 }
 
@@ -509,16 +511,19 @@ dialog.modal[open]::backdrop {
   font-family: var(--font);
   font-weight: 700;
   font-size: 0.8125rem;
+  line-height: 1.6;
 }
 
-/* a size container, so the picture can fit both its width and height */
+/* a size container, so the picture can fit both its width and height;
+   any height to spare goes under the picture, not between it and the
+   question */
 .scam__scene {
   flex: 1;
   min-height: 0;
   container-type: size;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .scam__picture {
@@ -552,15 +557,126 @@ dialog.modal[open]::backdrop {
   outline: 2px solid var(--cyan);
 }
 
-/* the answer to a tapped QR code: a navy panel over the middle of the
-   picture, 30% of its height in from the top and bottom and 25% of its
-   width in from the sides, its × in the top right corner, its copy
-   scrolling when it's longer */
+/* the stamps' layer, clipped to the picture: a stamp near its edge is
+   cut off there, as if pressed over it */
+.scam__stamps {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* a scam QR code's surface: a box mapped onto the picture by a matrix3d
+   (content/scam.js sets its size and transform), with the SCAM stamp
+   centred on its spot in it, tilted */
+.scam__surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.scam__stamp {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(var(--tilt));
+}
+
+.scam__stamp[hidden] {
+  display: none;
+}
+
+.scam__stamp svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* pressed on: dropped from above, squashed a little as it lands; lifted
+   off: the same, backwards */
+@keyframes scam-stamp-press {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--tilt)) scale(2.2);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--tilt)) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--tilt)) scale(1);
+  }
+}
+
+.scam__stamp.is-pressing {
+  animation: scam-stamp-press 0.45s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+.scam__stamp.is-lifting {
+  animation: scam-stamp-press 0.35s cubic-bezier(0.25, 1, 0.5, 1) reverse both;
+}
+
+/* (still run, briefly: content/scam.js hides a lifted stamp when its
+   animation ends) */
+@media (prefers-reduced-motion: reduce) {
+  .scam__stamp.is-pressing,
+  .scam__stamp.is-lifting {
+    animation-duration: 1ms;
+  }
+}
+
+/* Reset, under the picture: as the QROSSWORD modal's Reset (drawn in its
+   canvas, content/handdrawn.js), a pill outlined in white, its outline
+   greyed while there's nothing to reset */
+.scam__reset {
+  flex: none;
+  align-self: center;
+  margin-top: 0.5rem;
+  height: 2.5em;
+  padding: 0 1.1em;
+  border: 1px solid var(--fg);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: 500 0.8125rem/1 var(--font);
+  cursor: pointer;
+}
+
+.scam__reset:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.scam__reset:disabled {
+  border-color: var(--border);
+  color: var(--fg-muted);
+  cursor: default;
+}
+
+.scam__reset:focus {
+  outline: none;
+}
+
+.scam__reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* the answer to a tapped QR code: a navy panel over the picture, 15% of
+   its width in from the sides, as tall as its copy and centred down it
+   (spilling over its top and bottom alike when it's taller), its × in
+   the top right corner; see-through, the scene blurred behind it */
 .scam__answer {
   position: absolute;
-  inset: 30% 25%;
+  top: 50%;
+  left: 15%;
+  right: 15%;
+  transform: translateY(-50%);
+  z-index: 1;
   border-radius: 6px;
-  background: rgba(11, 26, 82, 0.94);
+  background: rgba(11, 26, 82, 0.75);
+  backdrop-filter: blur(2px);
   box-shadow: var(--shadow);
   font-size: 0.75rem;
   line-height: 1.45;
@@ -571,11 +687,9 @@ dialog.modal[open]::backdrop {
 }
 
 .scam__answer-text {
-  height: 100%;
-  overflow-y: auto;
-  padding: 0.75rem 2.25rem 0.75rem 0.875rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  /* the same each side: the × sits beside the verdict, which is short,
+     so the copy under it runs the panel's full width */
+  padding: 0.75rem 0.875rem;
 }
 
 .scam__answer-text p {
@@ -611,20 +725,28 @@ p.scam__verdict {
 
 .scam__answer-close {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.625rem;
+  right: 0.625rem;
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--fg);
+  /* as the modal's own × (.modal__close): its muted colour, which
+     .modal__layout turns white in here, then white on hover */
+  color: #b8c0e0;
   line-height: 0;
   cursor: pointer;
+  outline: none;
+}
+
+.scam__answer-close:hover,
+.scam__answer-close:focus-visible {
+  color: #fff;
 }
 
 .scam__answer-close svg {
   display: block;
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 0.625rem;
+  height: 0.625rem;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -731,6 +853,21 @@ p.scam__verdict {
 .modal__figure--wide img {
   width: 100%;
   background: none;
+}
+
+/* the reliable modal's covered QR code (content/reliable.js): the QR, the
+   image's left square, --qr across and centred, on white; the image runs
+   on past it to the right by its --ratio (width / height), however much
+   the covering spills over */
+.modal__figure--covered {
+  --qr: min(60%, 14rem);
+}
+
+.modal__figure--covered img {
+  width: calc(var(--qr) * var(--ratio));
+  max-width: none;
+  margin: 0 0 0 calc((100% - var(--qr)) / 2);
+  background: linear-gradient(#fff, #fff) left top / calc(100% / var(--ratio)) 100% no-repeat;
 }
 
 /* two pictures side by side, sharing the text's full width
