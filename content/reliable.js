@@ -72,8 +72,7 @@ const copy = {
    picture fills the text's width on its own transparent backing, as
    anatomy.js's wide pictures do.
    ------------------------------------------------------------------------ */
-// the covered QR code: its QR square centred, on white (the image is
-// transparent), with the covering free to run past it to the right; the
+// the covered QR code: its QR square centred, with the covering free to run past it to the right; the
 // caption doubles as its alt text
 const coveredPicture = ({ covered: { src, ratio }, caption }) => `
           <figure class="modal__figure modal__figure--covered" style="--ratio: ${ratio}">

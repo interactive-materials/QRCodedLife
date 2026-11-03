@@ -13,10 +13,10 @@
    The canvas is a model maker for DISTQRTED, the perspective QR prism
    (assets/js/obelisk/perspective-prism.js): a square viewport where the
    QR sits in the other artwork modals, showing the prism in 3D — drag it
-   to turn the model any way round, and scroll or pinch to zoom; two
-   round buttons in its bottom right corner, as the main view's, glide it
-   back to the starting view (↻) or to the scan point, straight above the
-   ridge where the QR resolves (the finder brackets) — and to its right
+   to turn the model any way round, and scroll or pinch to zoom; a round
+   button in its bottom right corner, as the main view's, glides it to the
+   scan point, straight above the ridge where the QR resolves (the finder
+   brackets) — and to its right
    three sliders: the scan height
    (above the ridge), the ridge length and the prism's height, and a
    Reset button that returns the shape and the view to how they started.
@@ -39,7 +39,6 @@ const copy = {
   title: "Distqrted",
   stageLabel: "The DISTQRTED prism in 3D, with sliders to reshape it",
   reset: "Reset",
-  home: "Reset view",
   scan: "Scan view: straight above the prism, where the QR code resolves",
   body: [
     "QR codes are made to be robust, scannable from any angle. Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
@@ -58,7 +57,7 @@ const SLIDERS = [
    range inputs and the button inside the <canvas> are its fallback
    content: never drawn, but focusable (arrow keys move the inputs) and
    read by screen readers; the canvas draws them as the sliders, the
-   Reset button and the view's two buttons, dragging a drawn slider moves
+   Reset button and the view's button, dragging a drawn slider moves
    its input, and a drawn button clicks its button.
    ------------------------------------------------------------------------ */
 export default function render({ titleId }) {
@@ -79,7 +78,6 @@ export default function render({ titleId }) {
             }).join("")}
             <button type="button" data-reset>${copy.reset}</button>
             <button type="button" data-view="scan" aria-label="${copy.scan}"></button>
-            <button type="button" data-view="home" aria-label="${copy.home}"></button>
           </canvas>
         </div>
       </div>
@@ -106,23 +104,20 @@ export default function render({ titleId }) {
    shows as one. It starts turned by VIEW_YAW and VIEW_PITCH.
 
    home() and scan() glide over GLIDE_MS (as the main view's reset) to the
-   starting view, or to the scan point: straight down from viewDist above
+   starting view (the Reset button), or to the scan point (the view's
+   button): straight down from viewDist above
    the ridge, the face's up on screen's up, where the warped QR resolves
    and the scan cue's brackets show (perspective-prism.js). That can be
    nearer than ZOOM_RANGE allows, so zooming in stops at wherever the
-   camera already is; and close in, the field of view widens past
-   VIEW_FOV to keep a FIT_CM square on the base in view, so the whole QR
-   is on screen from any scan height. Turning or zooming stops a glide.
+   camera already is. The field of view stays VIEW_FOV throughout.
+   Turning or zooming stops a glide.
    ------------------------------------------------------------------------ */
-const VIEW_FOV = 30; // deg
+const VIEW_FOV = 60; // deg, about a phone camera's, so the QR fits at the scan point
 const VIEW_YAW = 0.6; // rad, to start: turned to the right
 const VIEW_PITCH = 0.35; // and looking down a little
 const TURN_SPEED = 3; // rad per viewport side dragged
 const ZOOM_RANGE = [0.3, 2.5]; // the camera's distance, as a share of the fit
 const GLIDE_MS = 900;
-// the QR is never longer than the base; this leaves it clear of the
-// view's buttons
-const FIT_CM = PRISM.L * 1.75;
 const CM = 0.01;
 
 function makeView() {
@@ -224,13 +219,6 @@ function makeView() {
       target.z = (prism.userData.shape.H / 2) * CM;
       camera.quaternion.copy(orient);
       camera.position.set(0, 0, distance * zoom).applyQuaternion(orient).add(target);
-      // close in, widen to keep FIT_CM on the base in view
-      const toBase = distance * zoom + target.z;
-      const fov = Math.max(VIEW_FOV, THREE.MathUtils.radToDeg(2 * Math.atan((FIT_CM * CM) / 2 / toBase)));
-      if (camera.fov !== fov) {
-        camera.fov = fov;
-        camera.updateProjectionMatrix();
-      }
       camera.updateMatrixWorld();
       prism.updateMatrixWorld();
       animating = updateScanCue(prism, camera, dt) || gliding;
@@ -257,8 +245,8 @@ function makeView() {
    from PANEL_PAD into their section to QR_MARGIN short of the canvas's
    right, so the two sides' margins match; then the Reset button, centred
    across the sliders; where the stack is taller than the canvas
-   (on a phone), it all shrinks to fit. The view's buttons stack in its
-   bottom right corner, scan above home, ICON_INSET in, as the main view's
+   (on a phone), it all shrinks to fit. The view's button sits in its
+   bottom right corner, ICON_INSET in, as the main view's
    (white, their symbols navy), shrunk to ICON_MAX of a small view's side.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the view's section, as a share of the canvas's width
@@ -277,7 +265,7 @@ const ICON_SIZE = 2.5; // the view's buttons (rem), as the main view's
 const ICON_GAP = 0.5; // between them (rem)
 const ICON_INSET = 0.75; // from the view's edges (rem)
 const ICON_MAX = 0.16; // a button's largest share of the view's side
-const VIEW_BUTTONS = ["scan", "home"]; // top to bottom
+const VIEW_BUTTONS = ["scan"]; // top to bottom
 
 // 10 -> "10 cm", 7.5 -> "7.5 cm"
 const cm = (v) => `${Number(v.toFixed(1))} cm`;
@@ -397,28 +385,20 @@ export function mount(root) {
       ctx.strokeStyle = css("--accent");
       ctx.stroke();
     }
-    ctx.fillStyle = ctx.strokeStyle = navy;
-    if (name === "home") {
-      // ↻, in the body face, bold, as the main view's
-      ctx.font = `700 ${size / 2}px ${css("--font") || "sans-serif"}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("↻", cx, cy);
-    } else {
-      // a QR finder's four corner brackets
-      const h = size * 0.22; // the frame's half side
-      const arm = h * 0.55;
-      ctx.lineWidth = Math.max(1.5, size * 0.055);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        ctx.moveTo(cx + sx * h, cy + sy * (h - arm));
-        ctx.lineTo(cx + sx * h, cy + sy * h);
-        ctx.lineTo(cx + sx * (h - arm), cy + sy * h);
-      }
-      ctx.stroke();
+    // a QR finder's four corner brackets
+    ctx.strokeStyle = navy;
+    const h = size * 0.22; // the frame's half side
+    const arm = h * 0.55;
+    ctx.lineWidth = Math.max(1.5, size * 0.055);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      ctx.moveTo(cx + sx * h, cy + sy * (h - arm));
+      ctx.lineTo(cx + sx * h, cy + sy * h);
+      ctx.lineTo(cx + sx * (h - arm), cy + sy * h);
     }
+    ctx.stroke();
     if (focus === name) {
       ctx.beginPath();
       ctx.arc(cx, cy, size / 2 + 3, 0, Math.PI * 2);
@@ -679,7 +659,6 @@ export function mount(root) {
   };
   const onClick = (e) => {
     if (e.target === resetButton) reset();
-    else if (e.target === viewButtons.home) view?.home();
     else if (e.target === viewButtons.scan) view?.scan();
     else return;
     invalidate();

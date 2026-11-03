@@ -856,9 +856,9 @@ p.scam__verdict {
 }
 
 /* the reliable modal's covered QR code (content/reliable.js): the QR, the
-   image's left square, --qr across and centred, on white; the image runs
-   on past it to the right by its --ratio (width / height), however much
-   the covering spills over */
+   image's left square, --qr across; the image runs on past it to the
+   right by its --ratio (width / height), however much the covering
+   spills over, and the whole image is centred */
 .modal__figure--covered {
   --qr: min(60%, 14rem);
 }
@@ -866,8 +866,7 @@ p.scam__verdict {
 .modal__figure--covered img {
   width: calc(var(--qr) * var(--ratio));
   max-width: none;
-  margin: 0 0 0 calc((100% - var(--qr)) / 2);
-  background: linear-gradient(#fff, #fff) left top / calc(100% / var(--ratio)) 100% no-repeat;
+  background: none;
 }
 
 /* two pictures side by side, sharing the text's full width
