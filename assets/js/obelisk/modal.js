@@ -4,7 +4,7 @@
    Each modal is its own file, content/<slug>.js, loaded on first open. A
    file that default-exports a function renders itself (render({ titleId })
    returns its HTML, as content/anatomy.js does); one that default-exports
-   copy ({ eyebrow, title, body, image }) is laid out by
+   copy ({ subtitle, title, body, image }) is laid out by
    content/modal-layout.js's renderModal(). A content file may also
    export mount(contentEl) — e.g. to start its own canvas — called once its
    HTML is in place; it returns a function that undoes it, called when the

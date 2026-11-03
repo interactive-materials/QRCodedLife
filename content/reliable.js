@@ -40,7 +40,7 @@ export default function render({ titleId }) {
   return `
     <div class="modal__layout">
       <header class="modal__header">
-        <p class="modal__eyebrow">${copy.subtitle}</p>
+        <p class="modal__subtitle">${copy.subtitle}</p>
       </header>
       <div class="modal__text">
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>

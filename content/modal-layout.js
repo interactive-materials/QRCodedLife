@@ -2,8 +2,8 @@
    modal-layout.js — the shared layout every modal is rendered with.
 
    Each content/<slug>.js file (plus content/about.js) default-exports
-     { eyebrow, title, body, image }
-       eyebrow — small label above the title
+     { subtitle, title, body, image }
+       subtitle — small label above the title
        title   — heading shown in the modal
        body    — string, or array of paragraph strings; basic HTML allowed
        image   — optional { src, alt }; src is relative to the site root
@@ -43,7 +43,7 @@ export const placeholder = ({ panels, caption }) => `
 // titleId lets the <dialog>'s aria-labelledby point at the heading
 export function renderModal(entry, { titleId, fallbackTitle = "" } = {}) {
   return `
-    <p class="modal__eyebrow">${entry.eyebrow || "QR code"}</p>
+    <p class="modal__subtitle">${entry.subtitle || "QR code"}</p>
     <h2 class="modal__title" id="${titleId}">${entry.title || fallbackTitle}</h2>
     <div class="modal__body">
       ${paragraphs(entry.body)}

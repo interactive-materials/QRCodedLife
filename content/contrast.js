@@ -10,6 +10,8 @@
 
 import { placeholder } from "./modal-layout.js";
 
+const img = (name) => new URL(`../contrast/assets/${name}`, import.meta.url).href;
+
 const copy = {
   subtitle: "What makes a QR code scannable?",
   title: "QR Codes and Contrast",
@@ -24,21 +26,32 @@ const copy = {
     {
       text: "Dark colored QR codes are best placed on a light colored background, while light colored QR codes are best placed on a dark colored background.",
       figure: {
-        panels: ["Mirror QR on a white background", "Mirror QR on a black background"],
-        caption: "",
+        srcs: [img("light-bg.png"), img("dark-bg.png")],
+        caption: "The same mirror QR code with a light background on the left and a dark background on the right.",
       },
     },
   ],
 };
 
 /* ---- HTML ---------------------------------------------------------------
-   titleId lets the <dialog>'s aria-labelledby point at the heading.
+   titleId lets the <dialog>'s aria-labelledby point at the heading. A
+   figure with srcs shows its pictures side by side, the text's full width,
+   as anatomy.js's wide pictures do; the caption doubles as their alt text,
+   so alt is left empty. A figure with panels is a placeholder still.
    ------------------------------------------------------------------------ */
+const pictures = ({ srcs, caption }) => `
+          <figure class="modal__figure modal__figure--wide">
+            <div class="modal__pair">
+              ${srcs.map((src) => `<img src="${src}" alt="" />`).join("")}
+            </div>
+            <figcaption>${caption}</figcaption>
+          </figure>`;
+
 export default function render({ titleId }) {
   return `
     <div class="modal__layout">
       <header class="modal__header">
-        <p class="modal__eyebrow">${copy.subtitle}</p>
+        <p class="modal__subtitle">${copy.subtitle}</p>
       </header>
       <div class="modal__text">
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
@@ -46,7 +59,7 @@ export default function render({ titleId }) {
           ${copy.body
             .map(({ text, figure }) => `
           <p>${text}</p>
-          ${figure ? placeholder(figure) : ""}`)
+          ${figure ? (figure.srcs ? pictures(figure) : placeholder(figure)) : ""}`)
             .join("")}
         </div>
       </div>
