@@ -41,16 +41,21 @@ const copy = {
   reset: "Reset",
   scan: "Scan view: straight above the prism, where the QR code resolves",
   body: [
-    "QR codes are made to be robust, scannable from any angle. Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
+    "QR codes are made to be robust, scannable from any angle.",
+    "Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
   ],
 };
 
-// the sliders, top to bottom; label is drawn, name read by screen readers
+// the sliders, top to bottom; label is drawn (short, on screens up to
+// SHORT_LABELS_BELOW wide, so it doesn't run into its value), name read
+// by screen readers
 const SLIDERS = [
-  { key: "viewDist", label: "Scan height", name: "Scan height above the ridge, in cm" },
-  { key: "R", label: "Ridge length", name: "Ridge length, in cm" },
-  { key: "H", label: "Height", name: "Height of the prism, in cm" },
+  { key: "viewDist", label: "Scan height", short: "Scan dist.", name: "Scan height above the ridge, in cm" },
+  { key: "R", label: "Ridge length", short: "Ridge", name: "Ridge length, in cm" },
+  { key: "H", label: "Height", short: "Height", name: "Height of the prism, in cm" },
 ];
+const SHORT_LABELS_BELOW = 540; // px, the viewport's width
+const shortLabels = matchMedia(`(max-width: ${SHORT_LABELS_BELOW}px)`);
 
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
@@ -433,7 +438,8 @@ export function mount(root) {
     const thumbR = THUMB_R * unit;
     ctx.textBaseline = "middle";
     rows.forEach((row, i) => {
-      const { key, label } = SLIDERS[i];
+      const { key, label: long, short } = SLIDERS[i];
+      const label = shortLabels.matches ? short : long;
       ctx.fillStyle = fg;
       ctx.font = font(700);
       ctx.textAlign = "left";

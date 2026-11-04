@@ -41,12 +41,12 @@ function coveredFigure() {
   const { covered, scans, ratio } = COVERED[version];
   return {
     covered: { src: img(`${version}.png`), ratio },
-    caption: `This QR code is ${covered} covered, hence it is ${scans ? "scannable" : "unscannable"}.`,
+    caption: `This QR code is ${covered} covered, hence it is ${scans ? "scannable" : "unscannable"}`,
   };
 }
 
 const copy = {
-  subtitle: "Reliability",
+  subtitle: "What makes a QR code robust?",
   title: "Reliable QR Codes",
   // a figure with src is a picture, one with covered the covered QR code;
   // one with panels is a placeholder still: a dashed box per panel,
@@ -61,7 +61,7 @@ const copy = {
       figure: {
         src: img("matrix.png"),
         alt: "A grid of QR codes, a row per error correction level, with a bigger logo in each column and whether each QR code scans",
-        caption: "",
+        caption: "Comparison of three levels of error correction and the size of the logo that can be placed in the middle of the QR codes",
       },
     },
   ],

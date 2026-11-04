@@ -33,9 +33,8 @@ const copy = {
   heading: "Make your own pattern:",
   removeAll: "Remove all",
   body: [
-    "QR code is usually seen as a functional graphic with its trademark black and white squares placed prominently around cashiers and dining tables.",
-    "Coded Nyonya recompose scannable QR code into colourful tiles which blend into the background.",
-    "Talk about the design of a QR code. (The marking square)",
+    "A QR code is usually seen as a functional graphic with its familiar black and white squares standing out around cashiers and dining tables.",
+    "Coded Nyonya recompose scannable QR code into a colourful tile pattern which shows the aesthetic value of tiles while blending the QR codes into the background.",
   ],
 };
 
@@ -207,9 +206,10 @@ export function mount(root) {
     const centred = (w) => width - margin - (stackW + w) / 2;
     const stackH = headingH + gap + stackTile + gap + buttonH;
     const headingY = (height - stackH) / 2;
+    // its lines centred across the stack
     headingLines = lines.map((text, i) => ({
       text,
-      x: centred(stackW),
+      x: centred(0),
       y: headingY + (i + 0.5) * lineH,
     }));
 
@@ -282,10 +282,11 @@ export function mount(root) {
 
     // the panel: heading, tile, button
     ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
+    ctx.textAlign = "center";
     ctx.fillStyle = fg;
     ctx.font = font(700);
     for (const l of headingLines) ctx.fillText(l.text, l.x, l.y);
+    ctx.textAlign = "left";
 
     if (source.size > 0) {
       drawTile(source.x, source.y, source.size);

@@ -47,6 +47,8 @@ import { getShape, onShapeChange } from "./prism-shape.js";
 import { PATTERN_SIZE, getPattern, onPatternChange } from "./floor-pattern.js";
 import { loadQrossword, drawQrossword, getFound, onFoundChange } from "./qrossword.js";
 import { STAMP_SRC, isStamped, onStampChange } from "./scam-stamps.js";
+import { getGreyscale, binarisation, onGreyscaleChange } from "./greyscale.js";
+import { QR_SRC as QOLORFUL_SRC, readColourGrid, binarisedColour } from "./qolorful-qr.js";
 import {
   VIEWS as LENS_VIEWS,
   QR_FRAC as LENS_QR_FRAC,
@@ -172,7 +174,9 @@ const F2_TILES_CAPTIONS = [[204, 601, 88, 23]];
 
 // face 2's rectangular panels, by qrId index (face2-(n+1)). art: the
 // panel is artwork images — a frame image filling the panel, optionally
-// with a QR image at qrBox [x, y, size] (mm from the panel's top-left),
+// with a QR image at qrBox [x, y, size] (mm from the panel's top-left) —
+// or, with `qolorful`, the QOLORFUL QR drawn live over the frame's own
+// at qrBox, in the modal's colours and following its slider —
 // and optionally a SCAM stamp shown while the scam modal's code `key` is
 // stamped (see scam-stamps.js), centred `at` and `width` wide (shares of
 // the panel), tilted `tilt` degrees anticlockwise.
@@ -207,7 +211,13 @@ const F2_PANELS = [
   { n: 3, x: 53.45, y: 805.25, w: PRISM.W * 10, h: PRISM.L * 10, prism: true, captions: [[51, 977, 61, 23]] },
   {
     n: 4, x: 53.6, y: 1282.5, w: 150.4, h: 150.4, // color
-    art: { frame: "totem-bg/artwork/SVG/Asset 5.svg" },
+    art: {
+      frame: "totem-bg/artwork/SVG/Asset 5.svg",
+      // the artwork's QR: x 93.26, y 88.8, 239.17 square in its
+      // 425.69-wide viewBox, which fills the panel
+      qolorful: true,
+      qrBox: [93.26, 88.8, 239.17].map((v) => (v / 425.69) * 150.4),
+    },
     captions: [[56, 1442, 52, 23]],
   },
   {
@@ -728,7 +738,17 @@ function makeArtPanel(qrId, w, h, art) {
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), frameMat);
 
   let qrMat = null;
-  if (art.qr) {
+  let liveQr = null;
+  if (art.qolorful) {
+    liveQr = makeQolorfulQr();
+    const [qx, qy, qs] = art.qrBox.map((v) => v * MM);
+    const qr = new THREE.Mesh(
+      new THREE.PlaneGeometry(qs, qs),
+      new THREE.MeshBasicMaterial({ map: liveQr.tex }),
+    );
+    qr.position.set(-w / 2 + qx + qs / 2, h / 2 - qy - qs / 2, 0.001);
+    panel.add(qr);
+  } else if (art.qr) {
     const [qx, qy, qs] = art.qrBox.map((v) => v * MM);
     qrMat = new THREE.MeshBasicMaterial();
     const qr = new THREE.Mesh(new THREE.PlaneGeometry(qs, qs), qrMat);
@@ -739,6 +759,7 @@ function makeArtPanel(qrId, w, h, art) {
   // the stamp: a plane 1 unit square, sized to its art once loaded
   let stampMat = null;
   let stampMesh = null;
+  let stampAnim = null; // made once the stamp's art is loaded
   if (art.stamp) {
     const { at, tilt } = art.stamp;
     stampMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
@@ -754,6 +775,7 @@ function makeArtPanel(qrId, w, h, art) {
     loadTexture(art.frame),
     art.qr ? loadTexture(art.qr, true) : null,
     art.stamp ? loadTexture(STAMP_SRC, false, 1024) : null,
+    liveQr ? liveQr.ready : null,
   ])
     .then(([frameTex, qrTex, stampTex]) => {
       frameMat.map = frameTex;
@@ -768,16 +790,149 @@ function makeArtPanel(qrId, w, h, art) {
         stampMesh.scale.set(sw, (sw * stampTex.image.height) / stampTex.image.width, 1);
         stampMat.map = stampTex;
         stampMat.needsUpdate = true;
-        const show = () => (stampMesh.visible = isStamped(art.stamp.key));
-        show();
-        onStampChange(show);
+        stampAnim = makeStampAnimation(stampMesh, stampMat, sw, stampMesh.scale.y, () => isStamped(art.stamp.key));
+        onStampChange(stampAnim.wake);
       }
       panel.visible = true;
     })
     .catch((err) => console.error("obelisk: could not load panel art", err));
 
   panel.userData = { qrId };
-  return { panel, ready };
+  // per frame: the stamp's animation; true while it runs
+  const update = (camera, dt) => (stampAnim ? stampAnim.update(dt) : false);
+  return { panel, ready, update };
+}
+
+/* ---- the QOLORFUL panel's live QR ------------------------------------------
+   The modules of QOLORful.svg (the QOLORFUL modal's QR; see
+   qolorful-qr.js), one texel each, inside its white margin, drawn in the
+   modal's colours and redrawn as its slider moves: up to halfway the
+   site's grayscale filter greys them, as it does the modal's; from there
+   they go on to pure black and white with the modal's QR.
+   ------------------------------------------------------------------------ */
+function makeQolorfulQr() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.NearestFilter; // crisp modules
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+
+  let grid = null;
+  let drawnAt = -1; // the binarisation last drawn
+  const draw = (level) => {
+    const b = binarisation(level);
+    if (!grid || b === drawnAt) return;
+    drawnAt = b;
+    const { colours, first, last } = grid;
+    for (let row = first; row <= last; row++)
+      for (let col = first; col <= last; col++) {
+        ctx.fillStyle = binarisedColour(colours[row][col], b);
+        ctx.fillRect(col - first, row - first, 1, 1);
+      }
+    tex.needsUpdate = true;
+  };
+
+  const ready = readColourGrid(QOLORFUL_SRC).then((g) => {
+    grid = g;
+    // a canvas resized after its texture was first uploaded would need a
+    // new texture, so it's sized before then (the panel stays hidden
+    // until ready)
+    canvas.width = canvas.height = g.last - g.first + 1;
+    draw(getGreyscale());
+    onGreyscaleChange(draw);
+  });
+  return { tex, ready };
+}
+
+/* ---- the SCAM stamp's animation ------------------------------------------
+   As the scam modal's (.scam__stamp in base.css): stamped, it's pressed on
+   — dropped from STAMP_FROM x its size, fading in, squashing to 0.9 at 60%
+   and settling at 1; reset, the same played backwards, quicker, then
+   hidden. A change made while a modal is open (the stamp is pressed in
+   the scam modal) waits until the modals have closed, then STAMP_DELAY
+   more, so it plays where it can be seen. Shown as it is, without
+   playing, when the page loads, or with reduced motion.
+   ------------------------------------------------------------------------ */
+const STAMP_FROM = 2.2;
+const STAMP_PRESS = 0.45; // s
+const STAMP_LIFT = 0.35; // s
+const STAMP_DELAY = 0.35; // s, after the modal has closed
+
+const modalOpen = () => Boolean(document.querySelector("dialog[open]"));
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// cubic-bezier(x1, y1, x2, y2) at time x, as CSS's
+function cubicBezier(x1, y1, x2, y2) {
+  const at = (a, b, t) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+  return (x) => {
+    let lo = 0, hi = 1, t = x;
+    for (let i = 0; i < 24; i++) {
+      t = (lo + hi) / 2;
+      if (at(x1, x2, t) < x) lo = t;
+      else hi = t;
+    }
+    return at(y1, y2, t);
+  };
+}
+const pressEase = cubicBezier(0.5, 0, 0.75, 0);
+const liftEase = cubicBezier(0.25, 1, 0.5, 1);
+
+// the press at progress p (0..1, after easing): [scale, opacity]
+function pressAt(p) {
+  if (p < 0.6) {
+    const k = p / 0.6;
+    return [STAMP_FROM + (0.9 - STAMP_FROM) * k, k];
+  }
+  return [0.9 + 0.1 * ((p - 0.6) / 0.4), 1];
+}
+
+function makeStampAnimation(mesh, mat, w, h, wanted) {
+  let shown = wanted(); // the state shown, or being played to
+  let playing = null; // { on, t, delay }
+  const set = (scale, opacity) => {
+    mesh.scale.set(w * scale, h * scale, 1);
+    mat.opacity = opacity;
+  };
+  mesh.visible = shown;
+  set(1, 1);
+
+  return {
+    // a change: played next frame, once no modal is open
+    wake() {
+      if (wanted() === shown) return;
+      shown = wanted();
+      if (reduceMotion()) {
+        playing = null;
+        mesh.visible = shown;
+        set(1, 1);
+        return;
+      }
+      playing = { on: shown, t: 0, delay: STAMP_DELAY };
+      if (!shown && !mesh.visible) playing = null;
+    },
+    update(dt) {
+      if (!playing || modalOpen()) return false;
+      if (playing.delay > 0) {
+        playing.delay -= dt;
+        return true;
+      }
+      const length = playing.on ? STAMP_PRESS : STAMP_LIFT;
+      playing.t = Math.min(1, playing.t + dt / length);
+      // the lift is the press backwards (as CSS's reverse: its time runs
+      // from 1 to 0 through its own easing)
+      const p = playing.on ? pressEase(playing.t) : liftEase(1 - playing.t);
+      mesh.visible = true;
+      set(...pressAt(p));
+      if (playing.t < 1) return true;
+      mesh.visible = playing.on;
+      set(1, 1);
+      playing = null;
+      return false;
+    },
+  };
 }
 
 /* ---- QROSSWORD panel --------------------------------------------------
@@ -1036,6 +1191,7 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       const built = makeArtPanel(qrId, w * MM, h * MM, art);
       panel = built.panel;
       assetLoads.push(built.ready);
+      updaters.push(built.update);
       panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     } else if (prism) {
       const prismPanel = buildPerspectivePrism(getShape());

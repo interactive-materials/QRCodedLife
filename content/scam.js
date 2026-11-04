@@ -23,6 +23,12 @@
    assets/js/obelisk/scam-stamps.js, which the scam panel on the obelisk
    follows, so the sticker's stamp shows there too. A Reset button under
    the picture lifts every stamp off, here and there.
+
+   A button in the picture's bottom right corner, with the QROSSWORD
+   modal's hand-drawn expand and minimise icons (content/handdrawn.js),
+   expands it: the stage takes the whole modal (the rule and the copy go)
+   and the picture grows to fill it. The button, Escape, or the modal's ×
+   (or backdrop) shrinks it back; only then does the × close the modal.
    ========================================================================== */
 
 import {
@@ -36,11 +42,16 @@ import {
 
 const SCENE_SRC = new URL("../scam/assets/scam-scene.png", import.meta.url).href;
 const SCENE_RATIO = 2532 / 1904; // the picture's width / height
+const icon = (name) => new URL(`../handdrawn/assets/${name}`, import.meta.url).href;
+const EXPAND_SRC = icon("expand-icon.svg");
+const MINIMISE_SRC = icon("minimise-icon.svg");
 
 const copy = {
   title: "Be Qareful",
   question: "Which one is the scam QR code?",
   reset: "Reset",
+  expand: "Expand the picture",
+  collapse: "Shrink the picture",
   sceneLabel: "A shop with three QR codes: on the counter, by the door and on the window",
   body: [
     "The ubiquitousness of the QR code often makes it easy for us to instinctively scan any QR code we see.",
@@ -77,7 +88,7 @@ const CODES = [
     label: "The membership poster's QR code on the window",
     box: [90.75, 30.7, 9.0, 19.8],
     scam: true,
-    title: "Never trust a QR code blindly",
+    title: "Phishing QR code",
     // the phone frame round the poster's QR
     key: "survey",
     surface: {
@@ -94,7 +105,7 @@ const CODES = [
     label: "The Scan to Pay QR code on the posters by the door",
     box: [36.6, 36.6, 5.9, 11.2],
     scam: true,
-    title: "Suspicious logo and placement",
+    title: "Fake payment QR code",
     // the sticker, the same art as the obelisk's scam panel: the stamp
     // over its QR
     key: "sticker",
@@ -122,10 +133,10 @@ export default function render({ titleId }) {
     <div class="modal__layout">
       <div class="modal__top">
         <header class="modal__header"></header>
-        <div class="modal__stage scam">
+        <div class="modal__stage scam" style="--ratio: ${SCENE_RATIO}">
           <p class="scam__question">${copy.question}</p>
           <div class="scam__scene">
-            <div class="scam__picture" role="group" aria-label="${copy.sceneLabel}" style="--ratio: ${SCENE_RATIO}">
+            <div class="scam__picture" role="group" aria-label="${copy.sceneLabel}">
               <img src="${SCENE_SRC}" alt="" />
               <div class="scam__stamps">
                 ${CODES.map(({ key, surface }) => surface ? `
@@ -137,6 +148,9 @@ export default function render({ titleId }) {
               ${CODES.map(({ label, box: [left, top, width, height] }, i) => `
               <button class="scam__code" type="button" data-code="${i}" aria-label="${label}"
                 style="left: ${left}%; top: ${top}%; width: ${width}%; height: ${height}%"></button>`).join("")}
+              <button class="scam__expand" type="button" data-expand aria-pressed="false" aria-label="${copy.expand}">
+                <img src="${EXPAND_SRC}" alt="" data-expand-icon />
+              </button>
             </div>
           </div>
           <button class="scam__reset" type="button" data-reset ${getStamped().length ? "" : "disabled"}>${copy.reset}</button>
@@ -169,6 +183,21 @@ export function mount(root) {
   const picture = stage && stage.querySelector(".scam__picture");
   if (!picture) return null;
   const dialog = root.closest("dialog");
+  const layoutEl = root.querySelector(".modal__layout");
+  const expandButton = picture.querySelector("[data-expand]");
+  const expandIcon = expandButton.querySelector("[data-expand-icon]");
+  let expanded = false;
+
+  // expanding grows the stage over the whole modal (.is-expanded, in
+  // base.css); the picture refits it
+  function setExpanded(next) {
+    expanded = next;
+    layoutEl?.classList.toggle("is-expanded", expanded);
+    expandButton.classList.toggle("is-expanded", expanded);
+    expandButton.setAttribute("aria-pressed", String(expanded));
+    expandButton.setAttribute("aria-label", expanded ? copy.collapse : copy.expand);
+    expandIcon.src = expanded ? MINIMISE_SRC : EXPAND_SRC;
+  }
 
   const answer = document.createElement("div");
   answer.className = "scam__answer";
@@ -219,15 +248,31 @@ export function mount(root) {
       if (e.target.closest(".scam__answer-close") || !answer.contains(e.target)) hide();
       return;
     }
+    if (e.target.closest("[data-expand]")) return setExpanded(!expanded);
     const button = e.target.closest("[data-code]");
     if (button) show(button);
   };
   // Escape closes the answer, not the modal: stopping the keydown stops
   // the dialog's cancel (cancelling that isn't always allowed)
+  // (then, with the answer gone, Escape shrinks an expanded picture)
   const onKeydown = (e) => {
-    if (e.key !== "Escape" || answer.hidden) return;
-    e.preventDefault();
-    hide();
+    if (e.key !== "Escape") return;
+    if (!answer.hidden) {
+      e.preventDefault();
+      hide();
+    } else if (expanded) {
+      e.preventDefault();
+      setExpanded(false);
+    }
+  };
+  // the modal's × (or a click on the backdrop) shrinks an expanded
+  // picture before it closes the modal: caught on the way down, before
+  // modal.js's own listeners
+  const onCloseClick = (e) => {
+    if (!expanded) return;
+    if (e.target !== dialog && !e.target.closest("#qr-modal-close")) return;
+    e.stopPropagation();
+    setExpanded(false);
   };
 
   // a stamp newly stamped is pressed on; one reset is lifted off (the
@@ -262,12 +307,15 @@ export function mount(root) {
   stage.addEventListener("click", onClick);
   picture.addEventListener("animationend", onAnimationEnd);
   if (dialog) dialog.addEventListener("keydown", onKeydown);
+  if (dialog) dialog.addEventListener("click", onCloseClick, true);
   return () => {
     // the modal closing with an answer open: its stamp is still due
     if (pending) stamp(pending);
     stage.removeEventListener("click", onClick);
     picture.removeEventListener("animationend", onAnimationEnd);
     if (dialog) dialog.removeEventListener("keydown", onKeydown);
+    if (dialog) dialog.removeEventListener("click", onCloseClick, true);
+    setExpanded(false);
     stopStamps();
     resize.disconnect();
     answer.remove();

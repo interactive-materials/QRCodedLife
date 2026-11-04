@@ -20,6 +20,9 @@
      and the modal reuse that inset so every edge gap matches */
   --hud-icon-inset-y: 1.3rem;
   --hud-icon-inset-x: 1.45rem;
+  /* the modals' width: 32rem, or the screen less the HUD inset each side;
+     the pop-up comments (obelisk.css .remark) share it */
+  --modal-width: min(32rem, calc(100vw - 2 * var(--hud-icon-inset-x)));
   --font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   /* the totem artwork's title face (modal titles, the HUD title) */
@@ -201,7 +204,7 @@ dialog.modal {
   /* full viewport height, inset by the same gap as the HUD icons */
   margin: var(--hud-icon-inset-y) auto;
   width: 100%;
-  max-width: min(32rem, calc(100vw - 2 * var(--hud-icon-inset-x)));
+  max-width: var(--modal-width);
   height: calc(100vh - 2 * var(--hud-icon-inset-y));
   height: calc(100dvh - 2 * var(--hud-icon-inset-y));
   max-height: none;
@@ -220,8 +223,10 @@ dialog.modal {
    assets/js/obelisk/greyscale.js sets --greyscale (0..1) on <html>, with
    .is-greyscale while it's above 0 (any filter, even grayscale(0),
    changes how fixed children are placed). The dialogs are in the top
-   layer, outside <html>'s painting, so they take the filter themselves. */
-html.is-greyscale :is(.stage, .hud, dialog.modal) {
+   layer, outside <html>'s painting, so they take the filter themselves.
+   The pop-up comment (.remark) sits on <body> outside those, so it's
+   listed too. */
+html.is-greyscale :is(.stage, .hud, dialog.modal, .remark) {
   filter: grayscale(var(--greyscale));
 }
 
@@ -373,16 +378,17 @@ dialog.modal[open]::backdrop {
   position: relative;
 }
 
-/* the stage's canvas: the stage less --modal-gap above and below, sized
+/* the stage's canvas: right under the header, the stage less --modal-gap
+   below (the space to the rule), sized
    by the stage alone (absolutely placed, so the canvas's own pixel size
    never feeds back into the layout). Each modal draws its own. */
 .modal__canvas {
   position: absolute;
-  top: var(--modal-gap);
+  top: 0;
   left: 0;
   display: block;
   width: 100%;
-  height: calc(100% - 2 * var(--modal-gap));
+  height: calc(100% - var(--modal-gap));
   touch-action: manipulation;
 }
 
@@ -393,8 +399,8 @@ dialog.modal[open]::backdrop {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding: var(--modal-gap) 0;
+  gap: 0.25rem;
+  padding: 0 0 var(--modal-gap); /* no gap under the header */
 }
 
 .lens__qr {
@@ -500,12 +506,14 @@ dialog.modal[open]::backdrop {
   /* the question close over the picture, as the QROSSWORD list under
      its heading */
   gap: 0.25rem;
-  padding: var(--modal-gap) 0;
+  padding: 0 0 var(--modal-gap); /* no gap under the header */
 }
 
-.scam__question {
+/* (LENTIQR's caption over its QR, content/lentiqr.js, is the same) */
+.scam__question,
+.lens__caption {
   flex: none;
-  margin: 0;
+  margin: 0 0 0.5rem; /* a little air above the picture */
   text-align: center;
   /* as the QROSSWORD modal's list heading (content/handdrawn.js) */
   font-family: var(--font);
@@ -627,6 +635,57 @@ dialog.modal[open]::backdrop {
   }
 }
 
+/* expanded: the question, the picture and Reset kept together (the
+   scene no taller than the picture at the stage's full width, or less to
+   fit) and centred down the modal, so Reset stays right under the
+   picture. --ratio is set on the stage, content/scam.js. */
+.modal__layout.is-expanded .scam {
+  container-type: inline-size;
+  justify-content: center;
+}
+
+.modal__layout.is-expanded .scam__scene {
+  flex: 0 1 calc(100cqw / var(--ratio));
+}
+
+/* expand / minimise, in the picture's bottom right corner: the QROSSWORD
+   modal's hand-drawn icons (content/handdrawn.js), both 9.4% of the
+   picture's width across (the same size either way: the picture is about
+   as wide expanded as not), 4% of its height in from its edges; outlined
+   in the accent on hover, ringed when focused */
+.scam__expand {
+  position: absolute;
+  z-index: 0; /* under the answer */
+  bottom: 4%;
+  right: calc(4% / var(--ratio));
+  width: 9.4%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 11.35%; /* the icon's own corner (2.73 / 24.05) */
+  background: transparent;
+  cursor: pointer;
+}
+
+.scam__expand img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scam__expand:focus {
+  outline: none;
+}
+
+.scam__expand:hover {
+  outline: 1px solid var(--accent);
+}
+
+.scam__expand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* Reset, under the picture: as the QROSSWORD modal's Reset (drawn in its
    canvas, content/handdrawn.js), a pill outlined in white, its outline
    greyed while there's nothing to reset */
@@ -680,6 +739,25 @@ dialog.modal[open]::backdrop {
   box-shadow: var(--shadow);
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+/* when the scene is wider than the picture (the picture fits its height,
+   so it's narrower than the modal), the panel spans the modal's full
+   width instead: out past the picture's sides to the scene's edges.
+   The ratio is SCENE_RATIO in content/scam.js. */
+@container (min-aspect-ratio: 2532 / 1904) {
+  .scam__answer {
+    left: calc((100% - 100cqw) / 2);
+    right: calc((100% - 100cqw) / 2);
+  }
+}
+
+/* expanded, the scene is exactly the picture's shape, which the query
+   above would count as wider: the panel keeps its 15% in from the
+   picture's sides */
+.modal__layout.is-expanded .scam__answer {
+  left: 15%;
+  right: 15%;
 }
 
 .scam__answer[hidden] {
@@ -835,9 +913,16 @@ p.scam__verdict {
 
 /* a picture in the copy with its caption, both centred */
 /* inset 3rem each side; the picture and its caption share the width */
+/* 1.5rem at the sides up to 720px wide, 3rem on bigger screens */
 .modal__figure {
-  margin: 1.25rem 3rem;
+  margin: 1.25rem 1.5rem;
   text-align: center;
+}
+
+@media (min-width: 720px) {
+  .modal__figure {
+    margin-inline: 3rem;
+  }
 }
 
 .modal__figure img {
@@ -873,7 +958,7 @@ p.scam__verdict {
    (content/contrast.js) */
 .modal__pair {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.25rem;
 }
 
 .modal__pair img {
@@ -886,7 +971,7 @@ p.scam__verdict {
    what goes there */
 .modal__placeholder {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.25rem;
   aspect-ratio: 2 / 1;
 }
 
@@ -927,4 +1012,15 @@ p.scam__verdict {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* About modal: everything white except the subtitle; links without underline */
+#about-modal .modal__title,
+#about-modal .modal__body,
+#about-modal .modal__body * {
+  color: #fff;
+}
+
+#about-modal .modal__body a {
+  text-decoration: none;
 }

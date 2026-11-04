@@ -19,54 +19,43 @@
    the modal closes, on other pages and over a reload.
 
    The QR is drawn module by module from the grid in QOLORful.svg (see
-   readColourQr() below and assets/js/obelisk/qr-code.js).
+   readColourQr() below, assets/js/obelisk/qolorful-qr.js and
+   assets/js/obelisk/qr-code.js). The obelisk's QOLORFUL panel draws the
+   same grid in the same colours, so it follows the slider too.
    ========================================================================== */
 
 import { QrCode } from "../assets/js/obelisk/qr-code.js";
 import { getGreyscale, setGreyscale, binarisation } from "../assets/js/obelisk/greyscale.js";
-
-const QR_SRC = new URL("../color/assets/QOLORful.svg", import.meta.url).href;
+import {
+  QR_SRC,
+  DARK_COLOURS,
+  readColourGrid,
+  binarisedColour,
+} from "../assets/js/obelisk/qolorful-qr.js";
 
 const copy = {
   title: "Qolorful",
   stageLabel: "The QOLORFUL QR code, in colour",
   sliderLabel: "From colour to black and white",
+  caption: "Can you see\nthe QR code?",
   body: [
     "QR code is scannable and processed by computer, different with how we process images with our eyes",
     "QOLORFUL showed this difference by turning QR code into a colourful patchwork that appear differently from usual two-color QR code",
-    "[Placeholder: camera image processing — copy to come.]",
+    // "[Placeholder: camera image processing — copy to come.]",
   ],
 };
 
 /* ---- QR code ------------------------------------------------------------
-   QOLORful.svg draws every module as its own <rect>, in one of four
-   colours, inside a white margin: magenta and blue stand for black, pink
-   and yellow for white (DARK_COLOURS). In black and white it is a negative
+   QOLORful.svg (see qolorful-qr.js): magenta and blue modules stand for
+   black, pink and yellow for white. In black and white it is a negative
    QR — its position markers are white rings on black — framed by a black
    ring (the magenta / blue ring just inside the white margin). Each
    module is drawn in its own colour — set from the colour itself, not
    module.dark: QrCode counts the whole quiet zone light, but here part of
    it is the black ring.
    ------------------------------------------------------------------------ */
-const DARK_COLOURS = ["#ff00c8", "#0082ff"];
-
 async function readColourQr(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} ${url}`);
-  const svg = new DOMParser().parseFromString(await res.text(), "image/svg+xml").documentElement;
-
-  // the grid: every rect one module, the unit set by the first one; cells
-  // with no rect are the white margin
-  const rects = [...svg.querySelectorAll("rect[x][y]")];
-  if (!rects.length) throw new Error(`no modules in ${url}`);
-  const unit = parseFloat(rects[0].getAttribute("width"));
-  const total = Math.round(svg.viewBox.baseVal.width / unit);
-  const colours = Array.from({ length: total }, () => Array(total).fill("#ffffff"));
-  for (const r of rects) {
-    const col = Math.round(parseFloat(r.getAttribute("x")) / unit);
-    const row = Math.round(parseFloat(r.getAttribute("y")) / unit);
-    colours[row][col] = r.getAttribute("fill").toLowerCase();
-  }
+  const { colours, total } = await readColourGrid(url);
   const isDark = (row, col) => DARK_COLOURS.includes(colours[row][col]);
 
   // the symbol: the first offset down the diagonal where a 7 x 7 position
@@ -93,26 +82,17 @@ async function readColourQr(url) {
     const colour = colours[m.row + quiet][m.col + quiet];
     m.style = { dark: colour, light: colour };
     m.colour = colour;
-    m.inked = DARK_COLOURS.includes(colour); // black in black and white
   }
   return qr;
 }
 
 /* ---- black and white ----------------------------------------------------
-   Binarised by b (0..1): each module's grey — its colour through the
-   weights CSS grayscale() uses, so b = 0 matches the filtered colour —
-   moved b of the way to black (an inked module) or white. At 0 the
-   modules keep their own colours, for the site's filter to grey.
+   Binarised by b (0..1), each module as binarisedColour() has it. At 0
+   the modules keep their own colours, for the site's filter to grey.
    ------------------------------------------------------------------------ */
 function binarise(qr, b) {
   for (const m of qr.modules) {
-    let colour = m.colour;
-    if (b > 0) {
-      const [r, g, bl] = [1, 3, 5].map((i) => parseInt(m.colour.slice(i, i + 2), 16));
-      const grey = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-      const v = Math.round(grey + ((m.inked ? 0 : 255) - grey) * b);
-      colour = `rgb(${v}, ${v}, ${v})`;
-    }
+    const colour = binarisedColour(m.colour, b);
     m.style = { dark: colour, light: colour };
   }
 }
@@ -138,6 +118,7 @@ export default function render({ titleId }) {
         <div class="modal__stage">
           <canvas class="modal__canvas">
             <p>${copy.stageLabel}</p>
+            <p>${copy.caption}</p>
             <label>${copy.sliderLabel}
               <input type="range" min="0" max="100" value="${Math.round(getGreyscale() * 100)}" data-slider />
             </label>
@@ -159,11 +140,15 @@ export default function render({ titleId }) {
    Layout, in CSS px. The canvas splits into two sections: the QR's, the
    left QR_SECTION of its width, and the slider's, the rest. The QR is a
    square as big as fits in its section with QR_MARGIN all round, at its
-   left; the slider sits at the canvas's right, its thumb QR_MARGIN in, so
-   the two sides' margins match — as in handdrawn.js, tiles-qr.js and
-   angle.js, so every modal's QR is the same size in the same place. The slider is a vertical track SLIDER_LENGTH of the QR's
-   height, centred on it; its value runs down: colour at the top, black
-   and white at the bottom.
+   left — as in handdrawn.js, tiles-qr.js and angle.js, so every modal's
+   QR is the same size in the same place. The panel is laid out as
+   tiles-qr.js's: a stack of the caption (wrapped to the panel's width,
+   in the bold small text of tiles-qr.js's heading) and, PANEL_GAP under
+   it, the slider, centred across the stack; the stack is centred across
+   the panel (the QR's section to QR_MARGIN short of the canvas's right)
+   and down the canvas. The slider is a vertical track SLIDER_LENGTH
+   of the QR's height (or less, to fit); its value runs down: colour at
+   the top, black and white at the bottom.
    ------------------------------------------------------------------------ */
 const QR_SECTION = 0.6; // the QR's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the QR, inside its section (rem)
@@ -171,6 +156,9 @@ const SLIDER_LENGTH = 0.6; // the track's length, as a share of the QR's height
 const THUMB_R = 0.5; // thumb radius (rem)
 const TRACK_W = 4; // px
 const THUMB_STROKE = 1.5; // px
+const PANEL_GAP = 0.75; // the caption to the slider's thumb (rem)
+const FONT_SIZE = 0.8125; // rem
+const LINE_HEIGHT = 1.4; // a caption line, as a multiple of the font size
 
 export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
@@ -196,6 +184,25 @@ export function mount(root) {
 
   const css = (name) => getComputedStyle(canvas).getPropertyValue(name).trim();
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const font = (r) => `700 ${FONT_SIZE * r}px ${css("--font") || "sans-serif"}`;
+
+  // text in lines no wider than maxW, broken at spaces, and always at a
+  // line break ("\n") in the text
+  function wrap(text, maxW) {
+    const lines = [];
+    for (const part of text.split("\n")) {
+      let line = "";
+      for (const word of part.split(" ")) {
+        const next = line ? `${line} ${word}` : word;
+        if (line && ctx.measureText(next).width > maxW) {
+          lines.push(line);
+          line = word;
+        } else line = next;
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
 
   function layout() {
     const r = rem();
@@ -205,20 +212,45 @@ export function mount(root) {
     const size = Math.max(0, Math.min(height, section) - 2 * margin);
     const x = margin;
     const y = (height - size) / 2;
-    const length = size * SLIDER_LENGTH;
-    track = {
-      // the thumb's outer edge (its stroke straddles the radius) QR_MARGIN in
-      x: width - margin - THUMB_R * r - THUMB_STROKE / 2,
+    const thumbR = THUMB_R * r;
 
-      y0: y + (size - length) / 2,
-      y1: y + (size + length) / 2,
+    // the panel: from the QR's section to QR_MARGIN short of the right
+    ctx.font = font(r);
+    const room = Math.max(0, width - section - margin);
+    const gap = PANEL_GAP * r;
+    const lineH = FONT_SIZE * LINE_HEIGHT * r;
+    const lines = room > 0 ? wrap(copy.caption, room) : [];
+    const captionW = Math.max(0, ...lines.map((l) => ctx.measureText(l).width));
+    const captionH = lines.length * lineH;
+    // the slider's column: the thumb, its stroke straddling the radius
+    const sliderW = 2 * thumbR + THUMB_STROKE;
+    const stackW = Math.min(room, Math.max(captionW, sliderW));
+    // the track, its thumb's reach past each end included, fits under the
+    // caption
+    const length = Math.max(
+      0,
+      Math.min(size * SLIDER_LENGTH, height - captionH - gap - 2 * thumbR - THUMB_STROKE),
+    );
+    const stackH = captionH + gap + 2 * thumbR + length;
+    const top = (height - stackH) / 2;
+    // centred across the panel, as tiles-qr.js's stack, which its heading
+    // spreads across the whole panel
+    const left = section + (room - stackW) / 2;
+
+    // its lines centred across the stack, over the slider
+    const caption = lines.map((text, i) => ({ text, x: left + stackW / 2, y: top + (i + 0.5) * lineH }));
+    const y0 = top + captionH + gap + thumbR;
+    track = {
+      x: left + stackW / 2,
+      y0,
+      y1: y0 + length,
       w: colW,
     };
-    return { qr: { x, y, size }, r };
+    return { qr: { x, y, size }, r, caption };
   }
 
   function draw() {
-    const { qr, r } = layout();
+    const { qr, r, caption } = layout();
 
     const px = Math.round(qr.size * dpr);
     if (qrCode && px > 0) {
@@ -237,6 +269,13 @@ export function mount(root) {
     }
 
     const fg = css("--fg");
+
+    ctx.fillStyle = fg;
+    ctx.font = font(r);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const l of caption) ctx.fillText(l.text, l.x, l.y);
+
     const thumbY = track.y0 + (track.y1 - track.y0) * value();
     const thumbR = THUMB_R * r;
 
@@ -297,6 +336,8 @@ export function mount(root) {
     frame();
   });
   resizer.observe(canvas);
+  // the web font may land after the first draw
+  document.fonts?.ready.then(invalidate);
 
   // ---- the slider: the range input is the value; the drawn slider sets it
   const local = (e) => {

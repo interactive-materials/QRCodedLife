@@ -20,12 +20,14 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
 import { buildSky, setSky, isEasing, skyForSlug, animated as skyAnimated } from "./background.js";
 import { initModal, initAbout, openModal, closeModal, isModalOpen } from "./modal.js";
+import { initRemarks } from "./remarks.js";
 import { pageRoutes, contentForSlug } from "./routes.js";
-import { applyGreyscale } from "./greyscale.js";
+import { applyGreyscale, onGreyscaleChange } from "./greyscale.js";
 import { onPatternChange } from "./floor-pattern.js";
 import { onFoundChange } from "./qrossword.js";
 import { onShapeChange } from "./prism-shape.js";
 import { onChoiceChange as onLensChoiceChange } from "./lens-emoji.js";
+import { onStampChange } from "./scam-stamps.js";
 
 // the black-and-white level the QOLORFUL slider last left the site at
 applyGreyscale();
@@ -166,8 +168,11 @@ function init() {
   );
 
   // text is redrawn once its web font arrives, and image panels appear
-  // once loaded
-  obelisk.assetsReady.then(requestRender);
+  // once loaded; "Loading..." stays up until then (or until a load fails)
+  obelisk.assetsReady.finally(() => {
+    statusEl.hidden = true;
+    requestRender();
+  });
   // the floor, the QROSSWORD panel, the angle prism and the lenticular
   // panel redraw themselves when the tiles, handdrawn, angle and lens
   // modals change them
@@ -175,9 +180,15 @@ function init() {
   onFoundChange(requestRender);
   onShapeChange(requestRender);
   onLensChoiceChange(requestRender);
+  // the QOLORFUL panel goes black and white with its modal's QR
+  onGreyscaleChange(requestRender);
+  // the scam panel's stamp plays once the modals have closed (obelisk.js)
+  onStampChange(requestRender);
 
   initModal();
   initAbout();
+  // the pop-up comments (content/remarks.js turns them on or off)
+  initRemarks({ ready: obelisk.assetsReady });
   document.addEventListener("modal:open", (e) => {
     const { qrId } = e.detail;
     setSky(sky, skyForSlug[pageRoutes[qrId] ?? qrId]);
@@ -188,6 +199,7 @@ function init() {
   });
   document.addEventListener("modal:close", () => {
     setSky(sky);
+    requestRender();
     if (slugFromPath()) history.pushState({}, "", basePath());
   });
   window.addEventListener("popstate", syncFromUrl);
@@ -195,7 +207,6 @@ function init() {
   frameCamera();
   addEventListeners();
 
-  statusEl.hidden = true;
   syncFromUrl(); // open the modal on load if the URL points at one
   requestRender();
 }

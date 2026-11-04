@@ -34,6 +34,7 @@ const SIDES = ["left", "centre", "right"];
 
 const copy = {
   title: "Lentiqr",
+  caption: "Customise your own QR code",
   stageLabel: (side) => `The lenticular QR code as seen from the ${side}`,
   prev: "Previous emoji",
   next: "Next emoji",
@@ -41,7 +42,7 @@ const copy = {
   body: (side) => [
     "Lentiqr prints three QR codes on one lenticular sheet, so the code you scan depends on where you stand: left, centre or right.",
     `Choose the emoji for the view from the ${side}, and the lenticular panel on the obelisk shows it from that side.`,
-    "[Placeholder: how a lenticular print works — copy to come.]",
+    // "[Placeholder: how a lenticular print works — copy to come.]",
   ],
 };
 
@@ -64,6 +65,7 @@ export function lensModal(view) {
         <div class="modal__top">
           <header class="modal__header"></header>
           <div class="modal__stage lens" role="group" aria-label="${copy.stageLabel(side)}">
+            <p class="lens__caption">${copy.caption}</p>
             <div class="lens__qr">
               <div class="lens__card">
                 <div class="lens__code" style="--emoji-size: ${EMOJI_SIZE * 100}%">

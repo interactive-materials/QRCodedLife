@@ -14,6 +14,7 @@
      setShape(changes)      set some of them, remember and announce it
      onShapeChange(fn)      call fn(shape) on every change; returns a
                             function that stops it
+     isDefaultShape()       true while the shape is the original one
    ========================================================================== */
 
 import { PRISM } from "./perspective-prism.js";
@@ -51,6 +52,10 @@ function read() {
 
 export function getShape() {
   return { ...shape };
+}
+
+export function isDefaultShape() {
+  return KEYS.every((k) => shape[k] === PRISM[k]);
 }
 
 export function setShape(changes) {

@@ -43,14 +43,14 @@ import {
 const copy = {
   title: "Qrossword",
   stageLabel: "QROSSWORD, a hand-drawn QR code that is also a word search",
-  listHeading: "Find the MRT stations:",
+  listHeading: "Find the MRT stations!",
   expand: "Expand the word search",
   collapse: "Shrink the word search",
   reset: "Reset",
   body: [
     "QR code is often computer-generated and unreadable to humans.",
     "QROSSWORD replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting while allowing readable messages to be encoded inside the QR code",
-    "[Placeholder: why the QR code is able to be handwritten, and examples that do not work — copy to come.]",
+    // "[Placeholder: why the QR code is able to be handwritten, and examples that do not work — copy to come.]",
   ],
 };
 
@@ -119,7 +119,9 @@ export default function render({ titleId }) {
    left; the list sits at the canvas's right, QR_MARGIN in, so the two
    sides' margins match — as in color.js, tiles-qr.js and angle.js, so
    every modal's QR is the same size in the same place. Any room to
-   spare goes between them. The list is its heading, then the words running down in as
+   spare goes between them. The list's heading runs across the canvas's
+   top, centred, as the scam modal's question over its picture, and all
+   the rest lays out under it. The list is the words running down in as
    many columns as fit the canvas's height under it, each as wide as its
    longest word; where it's wider than the room beside the QR (on a
    phone), its text shrinks to fit.
@@ -145,14 +147,20 @@ const FONT_SIZE = 0.8125; // the list's text, at most (rem)
 const LINE_HEIGHT = 1.6; // a row, as a multiple of the font size
 const COLUMN_GAP = 1.25; // between list columns (em)
 const LIST_GAP = 1; // expanded: the QR to the list under it (rem)
+// the heading to what's under it, as the scam modal's question to its
+// picture (0.5rem margin + 0.25rem gap); the QR's margin counts towards it
+const HEADING_GAP = 0.75; // rem
+// the list to Reset under it, as tiles-qr.js's PANEL_GAP over its
+// Remove all
+const RESET_GAP = 0.75; // rem
 // the expand button, as a share of the QR's side: larger to expand the
 // small QR, smaller to minimise the expanded one
 const ICON_SIZE = { expand: 0.125, minimise: 0.08 };
 const ICON_INSET = 0.04; // from the QR's edges, as a share of its side
-// the Reset button, as tiles-qr.js's Remove all, in em of the list's text
+// the Reset button, as the scam modal's (.scam__reset), in em of the
+// heading's text (FONT_SIZE, never shrunk)
 const BUTTON_H = 2.5; // em
 const BUTTON_PAD = 1.1; // the button's text to its sides (em)
-const BUTTON_GAP = 0.25; // the last word to the button, at least (rem)
 
 export function mount(root) {
   const canvas = root.querySelector(".modal__canvas");
@@ -169,7 +177,7 @@ export function mount(root) {
   let dpr = 1;
   let raf = 0;
   let qr = { x: 0, y: 0, size: 0 };
-  let heading = { x: 0, y: 0, h: 0 }; // the list's heading row, CSS px
+  let heading = { x: 0, y: 0, px: 0, lines: [], lineH: 0 }; // the list's heading, CSS px
   let rows = []; // [{ x, y, h }] per word: its row in the list, CSS px
   let icon = { x: 0, y: 0, size: 0 }; // the expand button, CSS px
   let button = { x: 0, y: 0, w: 0, h: 0 }; // the Reset button, CSS px
@@ -182,24 +190,38 @@ export function mount(root) {
   const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
   const font = (px, weight = 400) => `${weight} ${px}px ${css("--font") || "sans-serif"}`;
 
-  // the list at font size px: its columns, overall size and the Reset
-  // button, which goes under the columns, BUTTON_GAP down. Beside the QR,
-  // a column runs the canvas's height less the button's; under it (given
+  // text in lines no wider than maxW, broken at spaces
+  function wrap(text, maxW) {
+    const lines = [];
+    let line = "";
+    for (const word of text.split(" ")) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > maxW) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // the list at font size px: its columns and overall size. Beside the
+  // QR, a column runs down `avail` (the height it has); under it (given
   // the room across), there are as many columns as fit across
-  function measureList(px, across = 0) {
+  function measureList(px, avail, across = 0) {
     const lineH = px * LINE_HEIGHT;
-    const buttonGap = BUTTON_GAP * rem();
-    ctx.font = font(px, 700);
-    const headingW = ctx.measureText(copy.listHeading).width;
-    ctx.font = font(px, 500);
-    const button = { w: ctx.measureText(copy.reset).width + 2 * BUTTON_PAD * px, h: BUTTON_H * px };
     ctx.font = font(px);
     const colW = Math.max(...WORDS.map(({ word }) => ctx.measureText(word).width));
     const colGap = COLUMN_GAP * px;
-    const perColumn = across
+    // the most words a column can take: down the canvas's height beside
+    // the QR, or enough for as many columns as fit across under it
+    const most = across
       ? Math.ceil(WORDS.length / Math.max(1, Math.floor((across + colGap) / (colW + colGap))))
-      : Math.max(1, Math.floor((height - buttonGap - button.h) / lineH) - 1);
-    const columns = Math.ceil(WORDS.length / perColumn);
+      : Math.max(1, Math.floor(avail / lineH));
+    // then the words shared out as evenly as those columns allow (10 in
+    // two columns: 5 and 5, not 8 and 2)
+    const columns = Math.ceil(WORDS.length / most);
+    const perColumn = Math.ceil(WORDS.length / columns);
     // the last column only as wide as its own longest word, so the list
     // ends where its text does
     const lastW = Math.max(
@@ -210,9 +232,8 @@ export function mount(root) {
       lineH,
       perColumn,
       colStep: colW + colGap,
-      button,
-      w: Math.max(headingW, button.w, (columns - 1) * (colW + colGap) + lastW),
-      h: (Math.min(WORDS.length, perColumn) + 1) * lineH + buttonGap + button.h,
+      w: (columns - 1) * (colW + colGap) + lastW,
+      h: Math.min(WORDS.length, perColumn) * lineH,
     };
   }
 
@@ -221,59 +242,86 @@ export function mount(root) {
   function layout() {
     const r = rem();
     const margin = QR_MARGIN * r;
+
+    // the heading across the top, centred, as the scam modal's question
+    // over its picture; the rest lays out under it, the QR's own margin
+    // HEADING_GAP below it
+    const headingPx = FONT_SIZE * r;
+    const headingLineH = headingPx * LINE_HEIGHT;
+    ctx.font = font(headingPx, 700);
+    const headingLines = wrap(copy.listHeading, width);
+    heading = { x: width / 2, y: 0, px: headingPx, lines: headingLines, lineH: headingLineH };
+    const areaTop = headingLines.length * headingLineH + Math.max(0, HEADING_GAP * r - margin);
+
+    // the Reset button, RESET_GAP under the list and centred across it, as
+    // tiles-qr.js's Remove all and angle.js's Reset under their panels;
+    // at the headings' size, as the other modals' buttons
+    ctx.font = font(headingPx, 500);
+    const buttonW = ctx.measureText(copy.reset).width + 2 * BUTTON_PAD * headingPx;
+    const buttonH = BUTTON_H * headingPx;
+    const resetGap = RESET_GAP * r;
+    const underList = resetGap + buttonH;
+    const areaH = Math.max(0, height - areaTop);
+
     let list;
     let listX;
     let listY;
     let listW; // the list's width as laid out
     if (expanded) {
       const across = Math.max(0, width - 2 * margin);
-      list = measureList(FONT_SIZE * r, across);
+      list = measureList(FONT_SIZE * r, areaH, across);
       for (let k = 0; k < 4 && list.w > across && across > 0; k++) {
-        list = measureList(list.px * (across / list.w), across);
+        list = measureList(list.px * (across / list.w), areaH, across);
       }
       const gap = LIST_GAP * r;
-      const size = Math.max(0, Math.min(across, height - 2 * margin - gap - list.h));
-      const top = (height - size - gap - list.h) / 2;
+      const size = Math.max(0, Math.min(across, areaH - 2 * margin - gap - list.h - underList));
+      const top = areaTop + margin;
       qr = { x: (width - size) / 2, y: top, size };
       // the list centred across, its text still left-aligned within it
-      listW = Math.min(across, list.w);
+      listW = Math.min(across, Math.max(list.w, buttonW));
       listX = (width - listW) / 2;
       listY = top + size + gap;
     } else {
       const section = width * QR_SECTION;
-      const size = Math.max(0, Math.min(height, section) - 2 * margin);
+      const size = Math.max(0, Math.min(areaH, section) - 2 * margin);
       const room = width - section - margin;
-      // the largest text, up to FONT_SIZE, that fits the room: shrinking
-      // it frees rows per column, and so maybe a column, so a scale to fit
+      // the columns, with Reset under them, no taller than the QR; the
+      // largest text, up to FONT_SIZE, that fits the room: shrinking it
+      // frees rows per column, and so maybe a column, so a scale to fit
       // overshoots; search instead
-      list = measureList(FONT_SIZE * r);
+      const avail = Math.max(0, size - underList);
+      list = measureList(FONT_SIZE * r, avail);
       if (list.w > room && room > 0) {
         let lo = 0;
         let hi = list.px;
         for (let k = 0; k < 12; k++) {
-          const next = measureList((lo + hi) / 2);
+          const next = measureList((lo + hi) / 2, avail);
           if (next.w <= room) lo = next.px;
           else hi = next.px;
         }
-        list = measureList(lo || hi);
+        list = measureList(lo || hi, avail);
       }
-      qr = { x: margin, y: (height - size) / 2, size };
-      listW = Math.min(room, list.w);
+      // the QR right under the heading, HEADING_GAP down; at the canvas's
+      // right, QR_MARGIN in, Reset with its bottom level with the QR's (as
+      // tiles-qr.js's Remove all with its grid's) and the list RESET_GAP
+      // above it (tiles-qr.js's PANEL_GAP)
+      qr = { x: margin, y: areaTop + margin, size };
+      listW = Math.min(room, Math.max(list.w, buttonW));
       listX = width - margin - listW;
-      listY = (height - list.h) / 2;
+      listY = qr.y + size - underList - list.h;
     }
-    heading = { x: listX, y: listY, h: list.lineH };
     rows = WORDS.map((_, i) => ({
       x: listX + Math.floor(i / list.perColumn) * list.colStep,
-      y: listY + (1 + (i % list.perColumn)) * list.lineH,
+      y: listY + (i % list.perColumn) * list.lineH,
       h: list.lineH,
     }));
 
-    // the Reset button at the foot of the list, centred across under it
     button = {
-      x: listX + (listW - list.button.w) / 2,
-      y: listY + list.h - list.button.h,
-      ...list.button,
+      x: listX + (listW - buttonW) / 2,
+      y: expanded ? listY + list.h + resetGap : qr.y + qr.size - buttonH,
+      w: buttonW,
+      h: buttonH,
+      px: headingPx,
     };
 
     const iconSize = qr.size * ICON_SIZE[expanded ? "minimise" : "expand"];
@@ -283,6 +331,16 @@ export function mount(root) {
       y: qr.y + qr.size - inset - iconSize,
       size: iconSize,
     };
+
+    // then the whole of it (the heading to the QR's foot or Reset's,
+    // whichever is lower) centred down the canvas
+    const bottom = Math.max(qr.y + qr.size, button.y + button.h);
+    const dy = Math.max(0, (height - bottom) / 2);
+    heading.y += dy;
+    qr.y += dy;
+    icon.y += dy;
+    button.y += dy;
+    for (const row of rows) row.y += dy;
     return list.px;
   }
 
@@ -306,7 +364,7 @@ export function mount(root) {
 
   // the Reset button, drawn as tiles-qr.js's Remove all: muted while
   // there's nothing to reset
-  function drawButton(px) {
+  function drawButton() {
     const empty = !found.some(Boolean);
     const { x, y, w, h } = button;
     ctx.beginPath();
@@ -316,7 +374,7 @@ export function mount(root) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = empty ? css("--border") : css("--fg");
     ctx.stroke();
-    ctx.font = font(px, 500);
+    ctx.font = font(button.px, 500);
     ctx.fillStyle = empty ? css("--fg-muted") : css("--fg");
     ctx.textAlign = "center";
     ctx.fillText(copy.reset, x + w / 2, y + h / 2);
@@ -352,8 +410,10 @@ export function mount(root) {
     const fg = css("--fg");
     ctx.textBaseline = "middle";
     ctx.fillStyle = fg;
-    ctx.font = font(px, 700);
-    ctx.fillText(copy.listHeading, heading.x, heading.y + heading.h / 2);
+    ctx.font = font(heading.px, 700);
+    ctx.textAlign = "center";
+    heading.lines.forEach((l, i) => ctx.fillText(l, heading.x, heading.y + (i + 0.5) * heading.lineH));
+    ctx.textAlign = "left";
 
     ctx.font = font(px);
     rows.forEach((row, i) => {
@@ -371,7 +431,7 @@ export function mount(root) {
       }
     });
 
-    drawButton(px);
+    drawButton();
   }
 
   function frame() {

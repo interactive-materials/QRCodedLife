@@ -19,6 +19,9 @@
                          greys to black and white, 0..1
      setGreyscale(t)     set, apply and remember the level
      applyGreyscale()    apply the remembered level (on page load)
+     onGreyscaleChange(fn)  call fn(level) each time a level is applied
+                         (the obelisk's QOLORFUL panel binarises with the
+                         modal's QR); returns an unsubscribe function
    ========================================================================== */
 
 const STORAGE_KEY = "coded-life:greyscale";
@@ -45,6 +48,14 @@ function apply(t) {
   root.classList.toggle("is-greyscale", t > 0);
   if (t > 0) root.style.setProperty("--greyscale", String(Math.min(t / GREY_END, 1)));
   else root.style.removeProperty("--greyscale");
+  listeners.forEach((fn) => fn(t));
+}
+
+const listeners = new Set();
+
+export function onGreyscaleChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
 }
 
 export function getGreyscale() {
