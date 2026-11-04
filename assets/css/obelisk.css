@@ -276,12 +276,6 @@ body {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-/* the main modal's corners on small screens (base.css) */
-@media (max-width: 640px) {
-  .remark {
-    border-radius: 4px;
-  }
-}
 
 .remark.is-shown {
   opacity: 1;
