@@ -19,6 +19,7 @@ assets/js/obelisk/
   routes.js                   QR id -> URL slug map
   modal.js                     native <dialog> wrapper for the modal
   main.js                      scene bootstrap, camera, input, routing
+  intro.js                     opening animation: the QR codes pop on once loaded
 assets/img/about.svg        top-right icon that opens the About modal
 assets/vendor/three/        pinned Three.js + OrbitControls (only dependency)
 ```

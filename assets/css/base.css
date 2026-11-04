@@ -290,10 +290,13 @@ dialog.modal[open]::backdrop {
 
 .modal__close {
   position: absolute;
-  /* same inset as .modal__inner's padding */
-  top: var(--modal-pad);
-  right: var(--modal-pad);
-  padding: 0;
+  /* the hitbox is a square in the modal's corner, the header band's
+     height (top padding + the ×'s row + the gap below it); the padding
+     centres the × in it, so the × still sits at .modal__inner's padding */
+  top: 0;
+  right: 0;
+  padding: var(--modal-pad);
+  z-index: 1;
   border: none;
   background: transparent;
   color: var(--fg-muted);
@@ -1014,7 +1017,8 @@ p.scam__verdict {
   }
 }
 
-/* About modal: everything white except the subtitle; links without underline */
+/* About modal: everything white except the subtitle; links underlined
+   only on hover (or keyboard focus) */
 #about-modal .modal__title,
 #about-modal .modal__body,
 #about-modal .modal__body * {
@@ -1023,4 +1027,9 @@ p.scam__verdict {
 
 #about-modal .modal__body a {
   text-decoration: none;
+}
+
+#about-modal .modal__body a:hover,
+#about-modal .modal__body a:focus-visible {
+  text-decoration: underline;
 }

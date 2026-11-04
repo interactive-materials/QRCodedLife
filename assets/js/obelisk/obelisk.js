@@ -548,6 +548,7 @@ function layoutFace1(faceIndex, qrTargets, assetLoads) {
   group.add(faceArt.mesh);
 
   for (const { n, x, y, w, h, frame, card, captions } of F1_PANELS) {
+    const loadsFrom = assetLoads.length;
     const qrId = `face${faceIndex + 1}-${n + 1}`;
     const { panel, ready } = card
       ? makeCardPanel(qrId, w * MM, h * MM, card)
@@ -555,11 +556,19 @@ function layoutFace1(faceIndex, qrTargets, assetLoads) {
     assetLoads.push(ready);
     panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     addCaptions(panel, captions, faceArt.full, assetLoads);
+    panelReady(panel, assetLoads, loadsFrom);
     group.add(panel);
     qrTargets.push(panel);
   }
 
   return group;
+}
+
+// panel.userData.ready: settles once the loads the panel added to
+// assetLoads (from index `from` on) have — its art, QR and captions. The
+// intro (intro.js) shows each panel once it's ready.
+function panelReady(panel, assetLoads, from) {
+  panel.userData.ready = Promise.all(assetLoads.slice(from));
 }
 
 /* ---- artwork panel (frame image + optional QR image) ----------------
@@ -1111,6 +1120,7 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
   // hovers and links as a single panel. Its origin sits at the top-left
   // tile's centre.
   {
+    const loadsFrom = assetLoads.length;
     const half = (F2_TILE / 2) * MM;
     const ox = toFaceX(F2_TILES_AT[0] + F2_TILE / 2);
     const oy = toFaceY(F2_TILES_AT[1] + F2_TILE / 2);
@@ -1162,12 +1172,14 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       color: new THREE.Color(panelColor(0)),
     };
     addCaptions(panel, F2_TILES_CAPTIONS, faceArt.full, assetLoads);
+    panelReady(panel, assetLoads, loadsFrom);
     group.add(panel);
     qrTargets.push(panel);
   }
 
   // the rectangular panels
   for (const { n, x, y, w, h, prism, art, card, qrossword, captions } of F2_PANELS) {
+    const loadsFrom = assetLoads.length;
     const qrId = `face${faceIndex + 1}-${n + 1}`;
     let panel;
     if (card) {
@@ -1214,6 +1226,7 @@ function layoutFace2(faceIndex, qrTargets, assetLoads, updaters) {
       panel.position.set(toFaceX(x + w / 2), toFaceY(y + h / 2), PANEL_Z);
     }
     addCaptions(panel, captions, faceArt.full, assetLoads);
+    panelReady(panel, assetLoads, loadsFrom);
     group.add(panel);
     qrTargets.push(panel);
   }

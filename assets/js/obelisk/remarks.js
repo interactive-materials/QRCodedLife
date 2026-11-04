@@ -87,8 +87,13 @@ function show(key) {
     card.className = "remark";
     card.dataset.key = key;
     card.setAttribute("role", "status");
-    card.innerHTML = `<p class="remark__text"></p>`;
-    card.firstChild.textContent = remarks[key].text;
+    // a blank line in the text ("\n\n") starts a new paragraph
+    for (const para of remarks[key].text.split(/\n\s*\n/)) {
+      const p = document.createElement("p");
+      p.className = "remark__text";
+      p.textContent = para.trim();
+      card.append(p);
+    }
     card.addEventListener("click", () => hide());
     document.body.append(card);
     // next frame, so it fades in from its starting style
@@ -128,11 +133,12 @@ function due() {
       return null;
     }
     case "color": {
-      const level = getGreyscale();
-      // back at full colour after being grey at some point this visit
-      // (when it opened, or moved there and back)
-      if (level === 0) return visit.wasGrey ? "colorBack" : null;
-      return level === start.grey ? null : "colorGrey";
+      // only a change from how it stood when the modal opened, full colour
+      // (level 0) or grey (anything else): moving the slider and coming
+      // back, or moving it about within the grey, says nothing
+      const colourful = getGreyscale() === 0;
+      if (colourful === (start.grey === 0)) return null;
+      return colourful ? "colorBack" : "colorGrey";
     }
     case "tiles-qr": {
       const cells = getPattern();
@@ -168,7 +174,6 @@ function update() {
   if (getStamped().length === 0) unmarkShown("scamOne");
   visit.lowStamps = Math.min(visit.lowStamps, getStamped().length);
   visit.lowFound = Math.min(visit.lowFound, foundCount());
-  if (getGreyscale() > 0) visit.wasGrey = true;
   const key = due();
   if (key && isOn(key)) show(key);
   else if (card) hide();
@@ -187,7 +192,6 @@ function onModalOpen(e) {
     },
     lowStamps: getStamped().length,
     lowFound: foundCount(),
-    wasGrey: getGreyscale() > 0,
   };
   hide(); // the tutorial, or the last visit's comment, goes
 }

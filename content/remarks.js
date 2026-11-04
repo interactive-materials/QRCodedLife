@@ -23,13 +23,13 @@ export const remarks = {
   // with the timer below, or at the first touch, click, scroll or key
   tutorial: {
     on: true,
-    text: "Click on any QR code to start",
+    text: "Welcome to Coded Life!\n\nClick on any QR code to start",
   },
 
   // Scam: once per tab, a visit that stamped only the first scam code
   scamOne: {
     on: true,
-    text: "Are you sure you have found all scam QR codes?",
+    text: "Are you sure you have found all of the scam QR codes?",
   },
   // Scam: a visit that stamped the second; again after a Reset and refind
   scamBoth: {
@@ -40,23 +40,23 @@ export const remarks = {
   // Angle: any slider change during the visit that leaves it off the original shape
   angleChanged: {
     on: true,
-    text: "The totem looks a bit weird...",
+    text: "The totem looks a bit weird",
   },
   // Angle: opened off the original shape and left back on it
   angleBack: {
     on: true,
-    text: "The totem is back to normal!",
+    text: "The totem is back to normal",
   },
 
-  // Color: the slider moved and was left somewhere grey
+  // Color: opened at full colour and left somewhere grey
   colorGrey: {
     on: true,
-    text: "The world looks grey...",
+    text: "The world looks grey",
   },
-  // Color: left back at full colour after being grey
+  // Color: opened grey and left at full colour
   colorBack: {
     on: true,
-    text: "The world looks colorful!",
+    text: "The world is so colourful",
   },
 
   // QROSSWORD: the found list changed and some stations are still to find
@@ -67,23 +67,23 @@ export const remarks = {
   // QROSSWORD: a visit that found the last station
   handdrawnDone: {
     on: true,
-    text: "Congratulations! You found all of the stations!",
+    text: "Congratulations! You found all of the MRT stations!",
   },
 
   // Tiles: the pattern changed during the visit
   tilesChanged: {
     on: true,
-    text: "The floor looks beautiful...",
+    text: "The floor looks beautiful",
   },
   // Tiles: ... and was left with no tiles at all
   tilesEmpty: {
     on: true,
-    text: "The floor looks too clean...",
+    text: "The floor looks too clean",
   },
 
   // Lenticular: the emoji changed during the visit
   lensChanged: {
     on: true,
-    text: "A new emoji discovered!",
+    text: "A new emoji discovered",
   },
 };

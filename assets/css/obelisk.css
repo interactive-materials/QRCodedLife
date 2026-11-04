@@ -216,24 +216,24 @@ body {
   display: none;
 }
 
-/* "Loading..." — dots fade in one after another, then reset */
-.stage__dots span {
-  opacity: 0;
-  animation: stage-dot 1.4s infinite;
+/* "Loading..." — the dots count up: "." then ".." then "...", then back
+   to "." (each a third of the cycle; the first dot always shows, the
+   hidden ones keep their space so the text doesn't shift) */
+.stage__dots span:nth-child(2) { animation: stage-dot-2 1.2s step-end infinite; }
+.stage__dots span:nth-child(3) { animation: stage-dot-3 1.2s step-end infinite; }
+
+@keyframes stage-dot-2 {
+  0% { opacity: 0; }
+  33.333%, 100% { opacity: 1; }
 }
 
-.stage__dots span:nth-child(2) { animation-delay: 0.2s; }
-.stage__dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes stage-dot {
-  0%, 15% { opacity: 0; }
-  30%, 75% { opacity: 1; }
-  90%, 100% { opacity: 0; }
+@keyframes stage-dot-3 {
+  0% { opacity: 0; }
+  66.667%, 100% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .stage__dots span {
-    opacity: 1;
     animation: none;
   }
 }
@@ -250,17 +250,23 @@ body {
   top: 50%;
   /* the same size whatever it says: two lines' height, the text centred
      in it */
-  /* always the modals' width (base.css) */
-  width: var(--modal-width);
+  /* the modals' width (base.css), less 6px each side: the outline below
+     sits 6px out from it */
+  width: calc(var(--modal-width) - 12px);
   height: calc(2 * 1.4em + 1.7rem);
   display: flex;
+  flex-direction: column; /* its paragraphs stacked */
   align-items: center;
   justify-content: center;
+  gap: 0.35em; /* between paragraphs */
   padding: 0 1.25rem;
-  border-radius: var(--radius);
-  background: rgba(17, 39, 119, 0.7); /* --navy, #112777, at 70% */
+  border-radius: 4px;
+  background: rgba(17, 39, 119, 0.8); 
+  outline: 1px solid rgba(17, 39, 119, 0.7);
+  outline-offset: 6px;
   color: #fff;
-  font-family: var(--font);
+  font-family: var(--font-title);
+  font-weight: 400; /* NEL Rounded Regular, as on the totem */
   font-size: 1rem;
   line-height: 1.4;
   text-align: center;
@@ -273,7 +279,7 @@ body {
 /* the main modal's corners on small screens (base.css) */
 @media (max-width: 640px) {
   .remark {
-    border-radius: 16px;
+    border-radius: 4px;
   }
 }
 

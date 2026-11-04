@@ -21,6 +21,7 @@ import { buildObelisk, setPanelHover, setPanelEnabled } from "./obelisk.js";
 import { buildSky, setSky, isEasing, skyForSlug, animated as skyAnimated } from "./background.js";
 import { initModal, initAbout, openModal, closeModal, isModalOpen } from "./modal.js";
 import { initRemarks } from "./remarks.js";
+import { makeIntro } from "./intro.js";
 import { pageRoutes, contentForSlug } from "./routes.js";
 import { applyGreyscale, onGreyscaleChange } from "./greyscale.js";
 import { onPatternChange } from "./floor-pattern.js";
@@ -38,7 +39,7 @@ const hintEl = document.getElementById("hint");
 
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
-let renderer, scene, camera, controls, obelisk, sky;
+let renderer, scene, camera, controls, obelisk, sky, intro;
 let renderRequested = false;
 let lastTick = 0;
 
@@ -167,12 +168,22 @@ function init() {
     setPanelEnabled(panel, Boolean(pageRoutes[panel.userData.qrId])),
   );
 
-  // text is redrawn once its web font arrives, and image panels appear
-  // once loaded; "Loading..." stays up until then (or until a load fails)
-  obelisk.assetsReady.finally(() => {
+  // the opening animation (intro.js): the QR panels stay hidden until
+  // they've all loaded, then pop on together. Skipped when the page opens
+  // straight onto a modal (a scanned QR): they then show as they load.
+  intro = makeIntro(obelisk);
+  intro.wake = requestRender;
+  if (!slugFromPath()) intro.prepare();
+  intro.play();
+
+  // "Loading..." stays up until the QR panels start popping in (or,
+  // without the intro, until everything has loaded or failed to)
+  const loaded = () => {
     statusEl.hidden = true;
     requestRender();
-  });
+  };
+  intro.revealed.then(loaded);
+  obelisk.assetsReady.finally(loaded);
   // the floor, the QROSSWORD panel, the angle prism and the lenticular
   // panel redraw themselves when the tiles, handdrawn, angle and lens
   // modals change them
@@ -188,7 +199,7 @@ function init() {
   initModal();
   initAbout();
   // the pop-up comments (content/remarks.js turns them on or off)
-  initRemarks({ ready: obelisk.assetsReady });
+  initRemarks({ ready: obelisk.assetsReady.finally(() => intro.done) });
   document.addEventListener("modal:open", (e) => {
     const { qrId } = e.detail;
     setSky(sky, skyForSlug[pageRoutes[qrId] ?? qrId]);
@@ -309,7 +320,8 @@ function tick(now) {
   const spinning = applySpin();
   const moving = controls.update() || spinning || gliding;
   updateFov();
-  const animating = obelisk.update(camera, dt);
+  const introPlaying = intro.update(dt);
+  const animating = obelisk.update(camera, dt) || introPlaying;
   renderer.render(scene, camera);
   // an animated sky (see background.js) redraws every frame; the browser
   // pauses this while the tab is hidden
@@ -394,7 +406,8 @@ function onClick(e) {
 }
 
 function onPointerMove(e) {
-  if (!finePointer || down.valid || isModalOpen()) return;
+  // a hover's grow would fight the intro's pop
+  if (!finePointer || down.valid || isModalOpen() || intro.running) return;
   setNDC(e);
   const panel = pickPanel();
   if (panel === hoveredPanel) return;
