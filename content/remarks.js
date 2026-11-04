@@ -34,7 +34,7 @@ export const remarks = {
   // Scam: a visit that stamped the second; again after a Reset and refind
   scamBoth: {
     on: true,
-    text: "You have found both scams!",
+    text: "You have found both scam QR codes!",
   },
 
   // Angle: any slider change during the visit that leaves it off the original shape
