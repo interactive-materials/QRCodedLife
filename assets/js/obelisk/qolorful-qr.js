@@ -36,13 +36,17 @@ export async function readColourGrid(url) {
   const rects = [...svg.querySelectorAll("rect[x][y]")];
   if (!rects.length) throw new Error(`no modules in ${url}`);
   const unit = parseFloat(rects[0].getAttribute("width"));
-  const total = Math.round(svg.viewBox.baseVal.width / unit);
+  // the grid covers the viewBox, which needn't start at 0 (it may crop
+  // the margin); rects outside it are left out
+  const vb = svg.viewBox.baseVal;
+  const total = Math.round(vb.width / unit);
   const colours = Array.from({ length: total }, () => Array(total).fill("#ffffff"));
   let first = total;
   let last = 0;
   for (const r of rects) {
-    const col = Math.round(parseFloat(r.getAttribute("x")) / unit);
-    const row = Math.round(parseFloat(r.getAttribute("y")) / unit);
+    const col = Math.round((parseFloat(r.getAttribute("x")) - vb.x) / unit);
+    const row = Math.round((parseFloat(r.getAttribute("y")) - vb.y) / unit);
+    if (row < 0 || col < 0 || row >= total || col >= total) continue;
     colours[row][col] = r.getAttribute("fill").toLowerCase();
     first = Math.min(first, row, col);
     last = Math.max(last, row, col);

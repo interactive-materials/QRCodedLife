@@ -54,9 +54,7 @@ const copy = {
   collapse: "Shrink the picture",
   sceneLabel: "A shop with three QR codes: on the counter, by the door and on the window",
   body: [
-    "The ubiquitousness of the QR code often makes it easy for us to instinctively scan any QR code we see.",
-    "However, there are QR codes that direct to harmful links or are made to mimic other QR code for malicious purposes.",
-    "Always check the links before visiting the site and do not download any apps from any QR code.",
+    "The ubiquity of the QR code makes it easy for us to scan any code we see without a second thought. However, some QR codes lead to harmful links or are made to mimic legitimate ones for malicious purposes. After scanning any QR code, always check the link before visiting the site, and avoid downloading apps through a QR code."
   ],
 };
 
@@ -98,7 +96,7 @@ const CODES = [
       width: 4.5,
     },
     body: [
-      "Nothing is free in the world, always be careful of any monetary promises. This QR code may lead you to phishing sites or ask you to download a malicious software. Only download apps from official sources and check the links before visiting any site."
+      "Nothing in the world is free, so always be careful of monetary promises. This QR code may lead you to a phishing site or ask you to download malicious software. Only download apps from official sources, and check the link before visiting any site."
     ],
   },
   {
@@ -116,7 +114,7 @@ const CODES = [
       width: 2.6,
     },
     body: [
-      "While it is inside the shop, the QR code does not have the official logo and is placed on top of an unrelated poster. It may have been put there by people with malicious intents hoping to trick customers into paying to another entity instead of the shop."
+      "Although it is inside the shop, this QR code does not have the official logo and is stuck on top of an unrelated poster. It may have been placed there by people with malicious intent, hoping to trick customers into paying someone other than the shop."
     ],
   },
 ];
