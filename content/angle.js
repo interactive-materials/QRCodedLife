@@ -36,7 +36,7 @@ import {
 import { LIMITS, getShape, setShape, onShapeChange } from "../assets/js/obelisk/prism-shape.js";
 
 const copy = {
-  title: "A QR code that can only be scanned from one position.",
+  title: "A QR code that can only be scanned from one position",
   stageLabel: "The DISTQRTED prism in 3D, with sliders to reshape it",
   reset: "Reset",
   scan: "Scan view: straight above the prism, where the QR code resolves",

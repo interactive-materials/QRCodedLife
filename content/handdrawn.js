@@ -41,16 +41,16 @@ import {
 } from "../assets/js/obelisk/qrossword.js";
 
 const copy = {
-  title: "Qrossword",
+  title: "Should QR codes be read by humans too?",
   stageLabel: "QROSSWORD, a hand-drawn QR code that is also a word search",
-  listHeading: "Find the MRT stations!",
+  listHeading: "Find the NEL stations!",
   expand: "Expand the word search",
   collapse: "Shrink the word search",
   reset: "Reset",
   body: [
     "The QR code is optimized to be read by a computer and unreadable to humans.",
     "<i>Qrossword</i> replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting into a scannable QR code.",
-    // "[Placeholder: why the QR code is able to be handwritten, and examples that do not work — copy to come.]",
+    "How many NEL station names can you find?",
   ],
 };
 
@@ -61,17 +61,17 @@ const qrossword = await loadQrossword().catch((err) => {
   return null;
 });
 
-// the expand button's hand-drawn icons, to expand and (once expanded) to
-// minimise: each on a dark, translucent rounded square, ICON_RADIUS of
-// its side round the corners
+// the expand button's icons (assets/img), to expand and (once expanded)
+// to minimise: each on a dark rounded square, ICON_RADIUS of its side
+// round the corners
 const asset = (name) => {
   const image = new Image();
-  image.src = new URL(`../handdrawn/assets/${name}`, import.meta.url).href;
+  image.src = new URL(`../assets/img/${name}`, import.meta.url).href;
   return image;
 };
-const expandIcon = asset("expand-icon.svg");
-const minimiseIcon = asset("minimise-icon.svg");
-const ICON_RADIUS = 2.73 / 24.05;
+const expandIcon = asset("expand_1.svg");
+const minimiseIcon = asset("minimise.svg");
+const ICON_RADIUS = 2.73 / 28.04;
 
 /* ---- HTML ---------------------------------------------------------------
    titleId lets the <dialog>'s aria-labelledby point at the heading. The
@@ -155,8 +155,8 @@ const HEADING_GAP = 0.75; // rem
 const RESET_GAP = 0.75; // rem
 // the expand button, as a share of the QR's side: larger to expand the
 // small QR, smaller to minimise the expanded one
-const ICON_SIZE = { expand: 0.125, minimise: 0.08 };
-const ICON_INSET = 0.04; // from the QR's edges, as a share of its side
+const ICON_SIZE = { expand: 0.1, minimise: 0.08 };
+const ICON_INSET = 0.02; // from the QR's edges, as a share of its side
 // the Reset button, as the scam modal's (.scam__reset), in em of the
 // heading's text (FONT_SIZE, never shrunk)
 const BUTTON_H = 2.5; // em

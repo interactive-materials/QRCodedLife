@@ -34,7 +34,7 @@ const copy = {
   removeAll: "Remove all",
   body: [
     "A QR code is usually seen as a functional graphic with its familiar black and white squares standing out around cashiers and dining tables.",
-    "<i>Coded Nyonya</i> reimagines the QR code into a colorful pixelated motif arranged on a wall tile. The design you see draws inspiration from traditional peranakan tile colors and patterns.",
+    "<i>Coded Nyonya</i> reimagines the QR code into a colorful pixelated motif arranged on a wall tile. The design you see draws inspiration from traditional Peranakan tile colors and patterns.",
   ],
 };
 

@@ -130,11 +130,12 @@ export function closeModal() {
 // doesn't change the URL or the sky, so it fires no modal:* events.
 export function initAbout() {
   aboutDialog = document.getElementById("about-modal");
+  // content/about.js renders itself, as the QR modals do
   loadContent("about").then((mod) => {
-    document.getElementById("about-modal-content").innerHTML = renderModal(
-      mod.default,
-      { titleId: "about-modal-title" },
-    );
+    document.getElementById("about-modal-content").innerHTML =
+      typeof mod.default === "function"
+        ? mod.default({ titleId: "about-modal-title" })
+        : renderModal(mod.default, { titleId: "about-modal-title" });
   });
 
   document

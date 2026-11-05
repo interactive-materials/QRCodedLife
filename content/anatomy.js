@@ -24,7 +24,9 @@ const copy = {
       text: "Each QR code comes with three position markers. These are patterns with a one cell-wide outline, a one cell gap, and a three by three cell square inside. This is the first thing a computer looks at. The three position markers indicate the presence and orientation of a QR code.",
       // each figure is one picture with its own caption, shown in this
       // order under the paragraph, on no white backing; add wide: true to
-      // one to make it fill the text's width
+      // one to make it fill the text's width; give one srcs (a list) in
+      // place of src to show those pictures side by side, the text's full
+      // width, under the one caption (as contrast.js's pairs)
       figures: [
         {
           src: img("position-squares.png"),
@@ -32,7 +34,7 @@ const copy = {
         },
         {
           src: img("position-square-7x7.png"),
-          caption: "A single position marker is made up of seven by seven cells: a one cell-wide outline, a one cell gap and a three by three square in the center",
+          caption: "A single position marker made up of seven by seven cells: a one cell-wide outline, a one cell gap and a three by three square in the center",
         },
       ],
     },
@@ -42,15 +44,12 @@ const copy = {
       figures: [
         {
           src: img("timing-belt-L.png"),
-          caption: "Version 3 (29 x 29 modules) QR code",
+          caption: "Version 3 (29 x 29 modules) QR code with the timing belt highlighted in red.",
         },
         {
-          src: img("timing-belt-M.png"),
-          caption: "Version 4 (33 x 33 modules) QR code, distorted horizontally. The position markers help correct the orientation while the timing belts tell the size of each cell",
-        },
-        {
-          src: img("timing-belt-H.png"),
-          caption: "Version 5 (37 x 37 modules) QR code. The QR code is scannable even when distorted in two different axes",
+          srcs: [img("timing-belt-M.png"), img("timing-belt-H.png")],
+          ratios: [504 / 618, 685 / 600], // each picture's width / height
+          caption:"Left: Version 4 (33 x 33 modules) QR code.<br>Right: Version 5 (37 x 37 modules) QR code.<br>The position markers help correct the orientation while the timing belts tell the size of each cell, so both QR codes are still scannable",
         },
       ],
     },
@@ -59,12 +58,12 @@ const copy = {
       text: "The quiet zone is the blank margin surrounding the QR code. Each QR code needs a quiet zone that is at least one cell wide. The quiet zone helps isolate the QR code from the background for scanning.",
       figures: [
         {
-          src: img("no-quiet-zone.png"),
-          caption: "A real QR code with no quiet zone, making it unscannable",
+          src: img("yellow-zone.png"),
+          caption: "The quiet zone highlighted in yellow",
         },
         {
-          src: img("with-quiet-zone.png"),
-          caption: "The same QR code, modified to have a quiet zone the same color as the light modules",
+          srcs: [img("black-zone.png"), img("white-zone.png")],
+          caption: "Left: a QR code with a dark quiet zone, which blends into its dark modules, making it hard to scan. Right: a QR code with a quiet zone the same color as the light modules",
         },
       ],
     },
@@ -80,6 +79,17 @@ const copy = {
 const figure = (src, caption, wide = false) => `
           <figure class="modal__figure modal__figure--clear${wide ? " modal__figure--wide" : ""}">
             <img src="${src}" alt="" />
+            <figcaption>${caption}</figcaption>
+          </figure>`;
+
+// pictures side by side under one caption, together the figure's width
+// (inset from the text like any figure); each takes a share of it by its
+// ratio (width / height), so they come out the same height
+const pictures = ({ srcs, ratios, caption }) => `
+          <figure class="modal__figure modal__figure--wide">
+            <div class="modal__pair modal__pair--spaced">
+              ${srcs.map((src, i) => `<img src="${src}" alt="" style="flex-grow: ${ratios ? ratios[i] : 1}" />`).join("")}
+            </div>
             <figcaption>${caption}</figcaption>
           </figure>`;
 
@@ -99,7 +109,7 @@ export default function render({ titleId }) {
               (part) => `
           <h3 class="modal__part">${part.name}</h3>
           <p>${part.text}</p>
-          ${part.figures.map((f) => figure(f.src, f.caption, f.wide)).join("")}`,
+          ${part.figures.map((f) => (f.srcs ? pictures(f) : figure(f.src, f.caption, f.wide))).join("")}`,
             )
             .join("")}
         </div>

@@ -41,7 +41,7 @@ const copy = {
    ------------------------------------------------------------------------ */
 const pictures = ({ srcs, caption }) => `
           <figure class="modal__figure modal__figure--wide">
-            <div class="modal__pair">
+            <div class="modal__pair modal__pair--spaced">
               ${srcs.map((src) => `<img src="${src}" alt="" />`).join("")}
             </div>
             <figcaption>${caption}</figcaption>

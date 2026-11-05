@@ -42,9 +42,9 @@ import {
 
 const SCENE_SRC = new URL("../scam/assets/scam-scene.png", import.meta.url).href;
 const SCENE_RATIO = 2532 / 1904; // the picture's width / height
-const icon = (name) => new URL(`../handdrawn/assets/${name}`, import.meta.url).href;
-const EXPAND_SRC = icon("expand-icon.svg");
-const MINIMISE_SRC = icon("minimise-icon.svg");
+const icon = (name) => new URL(`../assets/img/${name}`, import.meta.url).href;
+const EXPAND_SRC = icon("expand_1.svg");
+const MINIMISE_SRC = icon("minimise.svg");
 
 const copy = {
   title: "Be careful of what you scan!",

@@ -8,7 +8,7 @@
   --bg: #f4f4f2;
   --bg-elevated: #ffffff;
   --fg: #1a1a1a;
-  --fg-muted: #5c5c5c;
+  --fg-muted: #fffa;
   --border: #d9d9d4;
   --accent: #2f6df6;
   --accent-contrast: #ffffff;
@@ -26,7 +26,7 @@
   --font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   /* the totem artwork's title face (modal titles, the HUD title) */
-  --font-title: "NEL ROUNDED", var(--font);
+  --font-title: "DM Sans", var(--font);
   /* the totem artwork's navy (the modals, the HUD's title and button
      symbols) and cyan (the shaft, the modals' rule) */
   --navy: #112777;
@@ -196,7 +196,7 @@ dialog.modal {
   --bg: #0b1a52;
   --bg-elevated: var(--navy);
   --fg: #fff;
-  --fg-muted: #b8c0e0;
+  --fg-muted: #fffa;
   --border: #3a4d94;
   background: var(--bg-elevated);
   color: var(--fg);
@@ -652,7 +652,7 @@ dialog.modal[open]::backdrop {
 }
 
 /* expand / minimise, in the picture's bottom right corner: the QROSSWORD
-   modal's hand-drawn icons (content/handdrawn.js), both 9.4% of the
+   modal's icons (assets/img, as content/handdrawn.js), both 9.4% of the
    picture's width across (the same size either way: the picture is about
    as wide expanded as not), 4% of its height in from its edges; outlined
    in the accent on hover, ringed when focused */
@@ -665,7 +665,7 @@ dialog.modal[open]::backdrop {
   aspect-ratio: 1;
   padding: 0;
   border: none;
-  border-radius: 11.35%; /* the icon's own corner (2.73 / 24.05) */
+  border-radius: 9.74%; /* the icon's own corner (2.73 / 28.04) */
   background: transparent;
   cursor: pointer;
 }
@@ -784,7 +784,7 @@ dialog.modal[open]::backdrop {
 .scam__answer-title {
   margin: 0 0 0.35rem;
   font-family: var(--font-title);
-  font-weight: 400;
+  font-weight: 600;
   font-size: 1rem;
 }
 
@@ -836,7 +836,7 @@ p.scam__verdict {
 
 .modal__part {
   margin: 1.5rem 0 var(--modal-text-gap);
-  font-size: 1rem;
+  font-size: 1.2rem;
   color: var(--fg);
 }
 
@@ -844,7 +844,7 @@ p.scam__verdict {
   flex: none;
   margin: 0 0 var(--modal-gap);
   border: none;
-  border-top: 1px solid var(--cyan);
+  border-top: 1px solid #FFFFFF55;
 }
 
 .modal__text {
@@ -864,7 +864,7 @@ p.scam__verdict {
    outside .modal__layout, so it keeps its own colours) */
 .modal__layout {
   --fg: #fff;
-  --fg-muted: #fff;
+  --fg-muted: #ffffffaa;
 }
 
 /* text right below the header (no interactive top): --modal-gap apart */
@@ -893,13 +893,16 @@ p.scam__verdict {
 .modal__title {
   margin: 0 0 var(--modal-text-gap);
   font-family: var(--font-title);
-  font-weight: 400; /* as on the totem: NEL Rounded Regular */
-  font-size: 1.35rem;
+  font-weight: 600; /* as on the totem: NEL Rounded Regular */
+  font-size: 1.5rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  color: var(--cyan);
 }
 
 .modal__body {
   margin: 0;
-  color: var(--fg-muted);
+  color: var(--fg);
 }
 
 /* a heading sits --modal-text-gap above its first paragraph: the
@@ -966,7 +969,13 @@ p.scam__verdict {
    (content/contrast.js) */
 .modal__pair {
   display: flex;
+  align-items: center; /* not the default stretch, which squashes pictures of differing shapes */
   gap: 0.25rem;
+}
+
+/* a wider gap between the pictures (content/anatomy.js's pairs) */
+.modal__pair--spaced {
+  gap: 1rem;
 }
 
 .modal__pair img {
@@ -1024,14 +1033,29 @@ p.scam__verdict {
 
 /* About modal: everything white except the subtitle; links underlined
    only on hover (or keyboard focus) */
-#about-modal .modal__title,
+#about-modal .modal__title{
+  color: var(--cyan);
+}
+
 #about-modal .modal__body,
 #about-modal .modal__body * {
   color: #fff;
 }
 
-#about-modal .modal__body a {
+/* #about-modal .modal__body a {
   text-decoration: none;
+} */
+
+/* each link led by the right arrow (assets/img/right-arrow.svg, white),
+   about the height of a capital, outside the underline */
+#about-modal .modal__body a::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.45em;
+  background: url("../img/right-arrow.svg") center / contain no-repeat;
+  vertical-align: 0.02em;
 }
 
 #about-modal .modal__body a:hover,

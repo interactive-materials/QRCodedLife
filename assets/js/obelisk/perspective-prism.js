@@ -23,7 +23,7 @@
    R, H and viewDist (see prism-shape.js, which the angle modal sets);
    reshapePerspectivePrism(group, shape) rebuilds it to a new one.
 
-   updateScanCue(group, camera, dt) shows the easter egg: white corner
+   updateScanCue(group, camera, dt) shows the easter egg: green corner
    brackets hovering over the prism while the camera is where its QR
    resolves (see the scan cue, below). Call it every frame; true while it
    animates.
@@ -355,7 +355,7 @@ function faceMaterial(params) {
 }
 
 /* ---- scan cue -----------------------------------------------------------
-   The easter egg: white corner brackets, like a phone camera's QR finder,
+   The easter egg: green corner brackets, like a phone camera's QR finder,
    hovering over the prism once the camera is where its graphic resolves
    into a square. That's within SCAN_TOLERANCE of revealCameraHeight()
    from the base, and off the axis through the ridge's middle by no more
@@ -372,6 +372,7 @@ const CUE_LIFT = 0.08;
 const CUE_MARGIN = 1.15; // the frame's side, as a multiple of the QR's
 const CUE_ARM = 0.26; // a bracket's arm, as a share of the frame's side
 const CUE_LINE = 0.03; // its thickness, as a share of the frame's side
+const CUE_COLOR = 0x00b86b; // the brackets' green
 const CUE_SHADOW = 0.35; // the shadow's opacity, at full
 const CUE_FADE = 0.25; // seconds to fade fully in or out
 const CUE_BREATHE = 0.025; // the frame's swell, either way
@@ -431,7 +432,7 @@ function buildScanCue(s, fc, sizeCm, camHeight) {
   // reveal camera (screen-right is +X, screen-down +Z)
   const shadow = cueMesh(geo, 0x000000, 10);
   shadow.position.set(0.5, -0.01, 0.5).multiplyScalar(CUE_LINE * side);
-  cue.add(shadow, cueMesh(geo, 0xffffff, 11));
+  cue.add(shadow, cueMesh(geo, CUE_COLOR, 11));
   return cue;
 }
 

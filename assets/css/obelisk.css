@@ -75,8 +75,8 @@ body {
 
 .hud__title {
   font-family: var(--font-title);
-  font-size: 1.2rem;
-  font-weight: 400; /* NEL Rounded Regular, as on the totem */
+  font-size: 1.25rem;
+  font-weight: 600;
   color: var(--navy);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -110,9 +110,9 @@ body {
   place-items: center;
   box-sizing: border-box;
   /* reversed: white fill, navy symbol */
-  border: 1px solid #3a4d94;
+  border: 1.5px solid #3a4d94;
   border-radius: 50%;
-  /* background: #fff; */
+  background: transparent;
   color: var(--navy);
   font-family: var(--font-title);
   font-weight: 700;
@@ -121,8 +121,8 @@ body {
   line-height: 1;
   /* nudges the ? inside the circle (the circle stays put):
      --q-x + is right, - is left; --q-y + is down, - is up */
-  --q-x: 0px;
-  --q-y: 0.5px;
+  --q-x: 0.5px;
+  --q-y: 0px;
   /* the ? is centred, so padding on one side moves it by half that */
   padding: max(0px, 2 * var(--q-y)) max(0px, -2 * var(--q-x))
     max(0px, -2 * var(--q-y)) max(0px, 2 * var(--q-x));
