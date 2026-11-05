@@ -41,7 +41,7 @@ const copy = {
   reset: "Reset",
   scan: "Scan view: straight above the prism, where the QR code resolves",
   body: [
-    "QR codes are made to be robust, scannable from any angle.",
+    "A QR code is made to be robust, scannable from any angle.",
     "Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
   ],
 };
@@ -262,6 +262,11 @@ const LINE_HEIGHT = 1.4; // a label's line, as a multiple of the font size
 const LABEL_GAP = 0.25; // a label to its track (rem)
 const ROW_GAP = 1; // between sliders (rem)
 const THUMB_R = 0.5; // thumb radius (rem)
+// how far from a track a press still grabs its slider (rem): above and
+// below (kept under half the gap between rows, so two never overlap), and
+// past its ends (smaller, as the view sits just beside them)
+const HIT_REACH_Y = 1.4;
+const HIT_REACH_X = 1;
 const TRACK_W = 4; // px
 const THUMB_STROKE = 1.5; // px
 const BUTTON_H = 2; // rem
@@ -562,8 +567,9 @@ export function mount(root) {
     }
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h)
       return "button";
-    const reach = 1.6 * THUMB_R * unit;
-    const i = rows.findIndex((row) => Math.abs(y - row.y) <= reach && x >= row.x0 - reach && x <= row.x1 + reach);
+    const reachY = HIT_REACH_Y * unit;
+    const reachX = HIT_REACH_X * unit;
+    const i = rows.findIndex((row) => Math.abs(y - row.y) <= reachY && x >= row.x0 - reachX && x <= row.x1 + reachX);
     if (i >= 0) return i;
     const { x: sx, y: sy, size } = square;
     return view && x >= sx && x <= sx + size && y >= sy && y <= sy + size ? "view" : null;

@@ -39,8 +39,8 @@ const copy = {
   sliderLabel: "From colour to black and white",
   caption: "Can you see\nthe QR code?",
   body: [
-    "QR code is scannable and processed by computer, different with how we process images with our eyes",
-    "QOLORFUL showed this difference by turning QR code into a colourful patchwork that appear differently from usual two-color QR code",
+    "A QR code is scanned and processed by a computer, which reads it differently from how we see images with our eyes.",
+    "Qolorful shows this difference by turning the QR code into a colourful patchwork that looks different from the usual black and white QR code.",
     // "[Placeholder: camera image processing — copy to come.]",
   ],
 };
@@ -154,6 +154,9 @@ const QR_SECTION = 0.6; // the QR's section, as a share of the canvas's width
 const QR_MARGIN = 0.75; // round the QR, inside its section (rem)
 const SLIDER_LENGTH = 0.6; // the track's length, as a share of the QR's height
 const THUMB_R = 0.5; // thumb radius (rem)
+// how far from the track a press still grabs the slider (rem); 1.4rem
+// each side makes a ~45px-wide target, a comfortable size for a finger
+const HIT_REACH = 1.4;
 const TRACK_W = 4; // px
 const THUMB_STROKE = 1.5; // px
 const PANEL_GAP = 0.75; // the caption to the slider's thumb (rem)
@@ -348,7 +351,7 @@ export function mount(root) {
   const onSlider = (e) => {
     if (!track) return false;
     const [x, y] = local(e);
-    const reach = THUMB_R * rem();
+    const reach = HIT_REACH * rem();
     return (
       Math.abs(x - track.x) <= Math.max(track.w / 2, reach) &&
       y >= track.y0 - reach &&

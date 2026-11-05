@@ -264,7 +264,7 @@ body {
   background: rgba(17, 39, 119, 0.8); 
   outline: 1px solid rgba(17, 39, 119, 0.7);
   outline-offset: 6px;
-  color: var(--cyan); /* the artwork's cyan (base.css) */
+  color: #fff;
   font-family: var(--font-title);
   font-weight: 400; /* NEL Rounded Regular, as on the totem */
   font-size: 1rem;

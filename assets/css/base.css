@@ -943,14 +943,9 @@ p.scam__verdict {
   background: none;
 }
 
-/* the standard size, on no white backing, its caption centred
-   (content/anatomy.js) */
+/* the standard size, on no white backing (content/anatomy.js) */
 .modal__figure--clear img {
   background: none;
-}
-
-.modal__figure.modal__figure--clear figcaption {
-  text-align: center;
 }
 
 /* the reliable modal's covered QR code (content/reliable.js): the QR, the
@@ -1006,7 +1001,7 @@ p.scam__verdict {
   margin-top: 0.5rem;
   font-weight: 300;
   color: var(--caption);
-  text-align: justify;
+  text-align: center; /* was justify */
   font-size: 0.85rem;
 }
 

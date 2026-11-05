@@ -40,8 +40,8 @@ const copy = {
   next: "Next emoji",
   picked: (i) => `Emoji ${i + 1} of ${EMOJI_COUNT}`,
   body: (side) => [
-    "Lentiqr prints three QR codes on one lenticular sheet, so the code you scan depends on where you stand: left, centre or right.",
-    `Choose the emoji for the view from the ${side}, and the lenticular panel on the obelisk shows it from that side.`,
+    "A QR code often only contains one data.",
+    `LentiQR wonders if we are able to have one QR code that contains three data based on the angle of scanning.`,
     // "[Placeholder: how a lenticular print works — copy to come.]",
   ],
 };
