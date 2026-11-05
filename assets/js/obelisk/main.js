@@ -40,6 +40,7 @@ const hintEl = document.getElementById("hint");
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
 let renderer, scene, camera, controls, obelisk, sky, intro;
+let skyOptions; // the open QR's sky options (skyForSlug), if any
 let renderRequested = false;
 let lastTick = 0;
 
@@ -126,6 +127,12 @@ function init() {
   scene.background = new THREE.Color(0x000000); // cleared first; the sky draws over it
   sky = buildSky();
   scene.add(sky);
+  // the sky follows the local time of day (background-plain.js): ease to
+  // the current colours once a minute, keeping any open QR's sky options
+  setInterval(() => {
+    setSky(sky, skyOptions);
+    requestRender();
+  }, 60_000);
 
   camera = new THREE.PerspectiveCamera(FAR_FOV, 1, 0.1, 100);
   camera.position.set(0.9, 0.4, 1.5);
@@ -202,13 +209,15 @@ function init() {
   initRemarks({ ready: obelisk.assetsReady.finally(() => intro.done) });
   document.addEventListener("modal:open", (e) => {
     const { qrId } = e.detail;
-    setSky(sky, skyForSlug[pageRoutes[qrId] ?? qrId]);
+    skyOptions = skyForSlug[pageRoutes[qrId] ?? qrId];
+    setSky(sky, skyOptions);
     setPanelHover(hoveredPanel, false);
     hoveredPanel = null;
     canvas.style.cursor = "";
     requestRender();
   });
   document.addEventListener("modal:close", () => {
+    skyOptions = undefined;
     setSky(sky);
     requestRender();
     if (slugFromPath()) history.pushState({}, "", basePath());

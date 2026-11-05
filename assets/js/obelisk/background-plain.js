@@ -12,10 +12,17 @@
    writing depth, so it is never clipped by camera.far, never hides the
    scene, and never moves as the camera orbits or pans.
 
+   The colours follow the viewer's local clock: TIME_OF_DAY lists
+   keyframes (night, dawn, day, dusk) and the sky blends between the two
+   either side of the current hour. main.js calls setSky again every
+   minute so it drifts with the time. Add ?hour=19.5 to the URL to
+   preview a given time.
+
    buildSky(options?)      -> THREE.Mesh   (add to the scene)
-   setSky(sky, options?)   sets the sky to SKY + options, easing colours
-                           over `fade` seconds; no options restores the
-                           default SKY
+   setSky(sky, options?)   sets the sky to SKY + the colours for the
+                           current time + options, easing colours over
+                           `fade` seconds; no options restores the
+                           time-of-day sky
    skyForSlug              per-QR sky options, keyed by URL slug; applied
                            by main.js while that QR's modal is open
    animated                false: main.js only redraws while something
@@ -27,9 +34,8 @@
 import * as THREE from "three";
 
 export const SKY = {
-  zenith: "#a9c6e8", // straight up: soft daytime blue
-  horizon: "#f4efe3", // the old flat background cream
-  ground: "#e6e0d4", // below the horizon, beyond the floor
+  // zenith (straight up), horizon and ground (below the horizon, beyond
+  // the floor) come from TIME_OF_DAY; set them here to pin one sky
   exponent: 0.6,
   groundFade: 0.08,
 
@@ -43,6 +49,53 @@ export const skyForSlug = {
 };
 
 export const animated = false;
+
+// Sky colours by local hour (0..24), in order. Between two keyframes the
+// colours blend; the list wraps from the last back to the first.
+const DAY = { zenith: "#a9c6e8", horizon: "#f4efe3", ground: "#e6e0d4" };
+const NIGHT = { zenith: "#1f2747", horizon: "#4a4f6e", ground: "#3a3d52" };
+export const TIME_OF_DAY = [
+  { hour: 4.5, ...NIGHT },
+  { hour: 6, zenith: "#7d8db5", horizon: "#f2c6aa", ground: "#d8c4b6" }, // dawn
+  { hour: 8, ...DAY },
+  { hour: 17, ...DAY },
+  { hour: 19, zenith: "#6a7aa8", horizon: "#f0b08a", ground: "#d2b3a0" }, // dusk
+  { hour: 20.5, ...NIGHT },
+];
+
+// ?hour=19.5 in the URL fixes the clock, for previewing
+const HOUR_OVERRIDE = (() => {
+  try {
+    const h = parseFloat(new URLSearchParams(location.search).get("hour"));
+    return Number.isFinite(h) ? ((h % 24) + 24) % 24 : null;
+  } catch {
+    return null;
+  }
+})();
+
+function currentHour() {
+  if (HOUR_OVERRIDE !== null) return HOUR_OVERRIDE;
+  const d = new Date();
+  return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+}
+
+// the sky colours for a local hour, as hex strings
+export function skyAt(hour = currentHour()) {
+  const keys = TIME_OF_DAY;
+  // the last keyframe at or before `hour`, wrapping round midnight
+  let i = keys.findIndex((k) => k.hour > hour) - 1;
+  if (i < 0) i = keys.length - 1;
+  const a = keys[i];
+  const b = keys[(i + 1) % keys.length];
+  const span = (b.hour - a.hour + 24) % 24 || 24;
+  const t = ((hour - a.hour + 24) % 24) / span;
+  const out = {};
+  const c = new THREE.Color();
+  for (const key of ["zenith", "horizon", "ground"]) {
+    out[key] = "#" + c.lerpColors(new THREE.Color(a[key]), new THREE.Color(b[key]), t).getHexString();
+  }
+  return out;
+}
 
 const COLORS = ["zenith", "horizon", "ground"];
 
@@ -74,7 +127,7 @@ const fragmentShader = /* glsl */ `
 `;
 
 export function buildSky(options = {}) {
-  const s = { ...SKY, ...options };
+  const s = { ...skyAt(), ...SKY, ...options };
   const uniforms = {};
   for (const [key, value] of Object.entries(s)) {
     if (key === "fade") continue;
@@ -105,7 +158,7 @@ export function buildSky(options = {}) {
 }
 
 export function setSky(sky, options = {}) {
-  const s = { ...SKY, ...options };
+  const s = { ...skyAt(), ...SKY, ...options };
   const u = sky.material.uniforms;
   const from = {};
   const to = {};
