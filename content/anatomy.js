@@ -5,7 +5,7 @@
    Default-exports render({ titleId }), which returns the modal's HTML:
    the subtitle in the header row (beside the close button), then the
    title, the intro and the whole QR code, then each part's heading and
-   paragraph with its picture below it. The close button stays outside, in each page's
+   paragraph with its pictures (part.figures) below it. The close button stays outside, in each page's
    HTML.
    ========================================================================== */
 
@@ -22,23 +22,51 @@ const copy = {
     {
       name: "Position Markers",
       text: "Each QR code comes with three position markers. These are patterns with a one cell-wide outline, a one cell gap, and a three by three cell square inside. This is the first thing a computer looks at. The three position markers indicate the presence and orientation of a QR code.",
-      src: img("position_squares.png"),
-      wide: true,
-      caption: "The three position markers of a QR code. They always sit in the same places: the top left, top right and bottom left corners",
+      // each figure is one picture with its own caption, shown in this
+      // order under the paragraph, on no white backing; add wide: true to
+      // one to make it fill the text's width
+      figures: [
+        {
+          src: img("position-squares.png"),
+          caption: "The three position markers of a QR code. They always sit in the same places: the top left, top right and bottom left corners",
+        },
+        {
+          src: img("position-square-7x7.png"),
+          caption: "A single position marker is made up of seven by seven cells: a one cell-wide outline, a one cell gap and a three by three square in the center",
+        },
+      ],
     },
     {
       name: "Timing Pattern",
       text: "The timing patterns are two lines of alternating dark and light cells that run between the position markers. They help identify the size of the QR code even if the image is distorted.",
-      src: img("timing-belt.png"),
-      wide: true,
-      caption: "Three QR codes of different sizes. Each is distorted to a different angle but is still scannable. The number of cells along each timing pattern shows the size of its QR code",
+      figures: [
+        {
+          src: img("timing-belt-L.png"),
+          caption: "Version 3 (29 x 29 modules) QR code",
+        },
+        {
+          src: img("timing-belt-M.png"),
+          caption: "Version 4 (33 x 33 modules) QR code, distorted horizontally. The position markers help correct the orientation while the timing belts tell the size of each cell",
+        },
+        {
+          src: img("timing-belt-H.png"),
+          caption: "Version 5 (37 x 37 modules) QR code. The QR code is scannable even when distorted in two different axes",
+        },
+      ],
     },
     {
       name: "Quiet Zone",
       text: "The quiet zone is the blank margin surrounding the QR code. Each QR code needs a quiet zone that is at least one cell wide. The quiet zone helps isolate the QR code from the background for scanning.",
-      src: img("quiet-zone.png"),
-      wide: true,
-      caption: "Example of real QR codes with quiet zones. The left one is a real QR code with no quiet zone, making it unscannable. The right one shows the same QR code, modified to have a quiet zone the same color as the light modules",
+      figures: [
+        {
+          src: img("no-quiet-zone.png"),
+          caption: "A real QR code with no quiet zone, making it unscannable",
+        },
+        {
+          src: img("with-quiet-zone.png"),
+          caption: "The same QR code, modified to have a quiet zone the same color as the light modules",
+        },
+      ],
     },
   ],
 };
@@ -50,7 +78,7 @@ const copy = {
    part's picture fills the text's width, on no white backing.
    ------------------------------------------------------------------------ */
 const figure = (src, caption, wide = false) => `
-          <figure class="modal__figure${wide ? " modal__figure--wide" : ""}">
+          <figure class="modal__figure modal__figure--clear${wide ? " modal__figure--wide" : ""}">
             <img src="${src}" alt="" />
             <figcaption>${caption}</figcaption>
           </figure>`;
@@ -71,7 +99,7 @@ export default function render({ titleId }) {
               (part) => `
           <h3 class="modal__part">${part.name}</h3>
           <p>${part.text}</p>
-          ${figure(part.src, part.caption, part.wide)}`,
+          ${part.figures.map((f) => figure(f.src, f.caption, f.wide)).join("")}`,
             )
             .join("")}
         </div>

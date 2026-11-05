@@ -943,6 +943,16 @@ p.scam__verdict {
   background: none;
 }
 
+/* the standard size, on no white backing, its caption centred
+   (content/anatomy.js) */
+.modal__figure--clear img {
+  background: none;
+}
+
+.modal__figure.modal__figure--clear figcaption {
+  text-align: center;
+}
+
 /* the reliable modal's covered QR code (content/reliable.js): the QR, the
    image's left square, --qr across; the image runs on past it to the
    right by its --ratio (width / height), however much the covering
