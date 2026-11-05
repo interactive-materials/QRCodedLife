@@ -48,8 +48,8 @@ const copy = {
   collapse: "Shrink the word search",
   reset: "Reset",
   body: [
-    "QR code is often computer-generated and unreadable to humans.",
-    "Qrossword replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting while allowing readable messages to be encoded inside the QR code",
+    "The QR code is optimized to be read by a computer and unreadable to humans.",
+    "<i>Qrossword</i> replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting into a scannable QR code.",
     // "[Placeholder: why the QR code is able to be handwritten, and examples that do not work — copy to come.]",
   ],
 };

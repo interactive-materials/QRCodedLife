@@ -36,13 +36,13 @@ import {
 import { LIMITS, getShape, setShape, onShapeChange } from "../assets/js/obelisk/prism-shape.js";
 
 const copy = {
-  title: "Distqrted",
+  title: "A QR code that can only be scanned from one position.",
   stageLabel: "The DISTQRTED prism in 3D, with sliders to reshape it",
   reset: "Reset",
   scan: "Scan view: straight above the prism, where the QR code resolves",
   body: [
-    "A QR code is made to be robust, scannable from any angle.",
-    "Distqrted challenged this by distorting the QR code to be only scannable from a certain angle and distance.",
+    "QR codes are designed to be easily scanned from different angles.",
+    "<i>Distqrted</i> challenges this by warping the QR code around a corner. By playing with the perspective distortion of a camera, this is a QR code that can only be scanned from the front at a fixed distance.",
   ],
 };
 

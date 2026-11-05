@@ -33,15 +33,15 @@ import {
 const SIDES = ["left", "centre", "right"];
 
 const copy = {
-  title: "Lentiqr",
+  title: "3 in 1 QR code, anyone?",
   caption: "Customise your own QR code",
   stageLabel: (side) => `The lenticular QR code as seen from the ${side}`,
   prev: "Previous emoji",
   next: "Next emoji",
   picked: (i) => `Emoji ${i + 1} of ${EMOJI_COUNT}`,
   body: (side) => [
-    "A QR code often only contains one data.",
-    `LentiQR wonders if we are able to have one QR code that contains three data based on the angle of scanning.`,
+    "A QR code graphic only contains one data source.",
+    "Through lenticular printing, <i>LentiQR</i> explores embedding three different data sources into the QR code based on the angle scanned.",
     // "[Placeholder: how a lenticular print works — copy to come.]",
   ],
 };

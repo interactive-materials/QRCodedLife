@@ -34,13 +34,13 @@ import {
 } from "../assets/js/obelisk/qolorful-qr.js";
 
 const copy = {
-  title: "Qolorful",
+  title: "Who said that QR codes have to be black and white?",
   stageLabel: "The QOLORFUL QR code, in colour",
   sliderLabel: "From colour to black and white",
   caption: "Can you see\nthe QR code?",
   body: [
-    "A QR code is scanned and processed by a computer, which reads it differently from how we see images with our eyes.",
-    "Qolorful shows this difference by turning the QR code into a colourful patchwork that looks different from the usual black and white QR code.",
+    "A QR code is scanned and processed by a computer differently from how we see images with our eyes. Detected QR codes are first transformed into a black and white image through a thresholding algorithm, before data is read.",
+    "<i>Qolorful</i> uses a patchwork of different dark and bright colors to demonstrate the difference between human vision and computer vision.",
     // "[Placeholder: camera image processing — copy to come.]",
   ],
 };

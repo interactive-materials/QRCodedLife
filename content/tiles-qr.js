@@ -28,13 +28,13 @@ import {
 const TILE_SRC = new URL("../tiles-qr/assets/tile.svg", import.meta.url).href;
 
 const copy = {
-  title: "Coded Nyonya",
+  title: "Would you decorate your house with QR codes?",
   stageLabel: "A 3 by 3 grid to tile; the floor repeats its pattern",
   heading: "Make your own pattern:",
   removeAll: "Remove all",
   body: [
     "A QR code is usually seen as a functional graphic with its familiar black and white squares standing out around cashiers and dining tables.",
-    "Coded Nyonya recompose scannable QR code into a colourful tile pattern which shows the aesthetic value of tiles while blending the QR codes into the background.",
+    "<i>Coded Nyonya</i> reimagines the QR code into a colorful pixelated motif arranged on a wall tile. The design you see draws inspiration from traditional peranakan tile colors and patterns.",
   ],
 };
 

@@ -47,14 +47,16 @@ const EXPAND_SRC = icon("expand-icon.svg");
 const MINIMISE_SRC = icon("minimise-icon.svg");
 
 const copy = {
-  title: "Be Qareful",
+  title: "Be careful of what you scan!",
   question: "Which one is the scam QR code?",
   reset: "Reset",
   expand: "Expand the picture",
   collapse: "Shrink the picture",
   sceneLabel: "A shop with three QR codes: on the counter, by the door and on the window",
   body: [
-    "The ubiquity of the QR code makes it easy for us to scan any code we see without a second thought. However, some QR codes lead to harmful links or are made to mimic legitimate ones for malicious purposes. After scanning any QR code, always check the link before visiting the site, and avoid downloading apps through a QR code."
+    "QR codes are everywhere, and many of us scan any code we see without a second thought.",
+    "However, QR codes may contain harmful links or malware. Bad actors have disguised QR codes to mimic legitimate ones for malicious purposes.",
+    "Always check the URL embedded in a QR code before clicking on it, and avoid downloading apps through a QR code.",
   ],
 };
 
