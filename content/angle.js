@@ -34,15 +34,28 @@ import {
   updateScanCue,
 } from "../assets/js/obelisk/perspective-prism.js";
 import { LIMITS, getShape, setShape, onShapeChange } from "../assets/js/obelisk/prism-shape.js";
+import { photos } from "./modal-layout.js";
+
+// the printed artwork's photos, under the copy, one under the other
+const PHOTOS = [
+  {
+    src: new URL("../angle/assets/angle.jpg", import.meta.url).href,
+    caption: "Check out <i>Distqrted</i> at Sengkang&nbsp;MRT&nbsp;Station!",
+  },
+  {
+    src: new URL("../angle/assets/angle-angle.jpg", import.meta.url).href,
+    alt: "Distqrted, seen from an angle",
+  },
+];
 
 const copy = {
-  title: "A QR code that can only be scanned from one position",
+  title: "A QR&nbsp;code that can only be scanned from one position",
   stageLabel: "The DISTQRTED prism in 3D, with sliders to reshape it",
   reset: "Reset",
-  scan: "Scan view: straight above the prism, where the QR code resolves",
+  scan: "Scan view: straight above the prism, where the QR&nbsp;code resolves",
   body: [
-    "QR codes are designed to be easily scanned from different angles.",
-    "<i>Distqrted</i> challenges this by warping the QR code around a corner. By playing with the perspective distortion of a camera, this is a QR code that can only be scanned from the front at a fixed distance.",
+    "QR&nbsp;codes are designed to be easily scanned from different angles.",
+    "<i>Distqrted</i> challenges this by warping the QR&nbsp;code around a corner. By playing with the perspective distortion of a camera, this is a QR&nbsp;code that can only be scanned from the front at a fixed distance.",
   ],
 };
 
@@ -91,6 +104,7 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${photos(PHOTOS)}
         </div>
       </div>
     </div>

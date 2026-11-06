@@ -32,14 +32,27 @@ import {
   readColourGrid,
   binarisedColour,
 } from "../assets/js/obelisk/qolorful-qr.js";
+import { photos } from "./modal-layout.js";
+
+// the printed artwork's photos, under the copy, one under the other
+const PHOTOS = [
+  {
+    src: new URL("../color/assets/color.jpg", import.meta.url).href,
+    caption: "Check out <i>Qolorful</i> at Sengkang&nbsp;MRT&nbsp;Station!",
+  },
+  // {
+  //   src: new URL("../color/assets/color-angle.jpg", import.meta.url).href,
+  //   alt: "Qolorful, seen from an angle",
+  // },
+];
 
 const copy = {
-  title: "Who said that QR codes have to be black and white?",
-  stageLabel: "The QOLORFUL QR code, in colour",
+  title: "Who said that QR&nbsp;codes have to be black and white?",
+  stageLabel: "The QOLORFUL QR&nbsp;code, in colour",
   sliderLabel: "From colour to black and white",
-  caption: "Can you see\nthe QR code?",
+  caption: "Can you see\nthe QR code?",
   body: [
-    "A QR code is scanned and processed by a computer differently from how we see images with our eyes. Detected QR codes are first transformed into a black and white image through a thresholding algorithm, before data is read.",
+    "A QR&nbsp;code is scanned and processed by a computer differently from how we see images with our eyes. Detected QR&nbsp;codes are first transformed into a black and white image through a thresholding algorithm, before data is read.",
     "<i>Qolorful</i> uses a patchwork of different dark and bright colors to demonstrate the difference between human vision and computer vision.",
     // "[Placeholder: camera image processing — copy to come.]",
   ],
@@ -130,6 +143,7 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${photos(PHOTOS)}
         </div>
       </div>
     </div>

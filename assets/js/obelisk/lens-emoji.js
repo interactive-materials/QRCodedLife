@@ -4,8 +4,8 @@
    lenticular panel on the obelisk (obelisk.js) follows.
 
    Each view (left, centre, right) is its own QR with an emoji over its
-   centre. A view's emoji are its own eyes (looking its way), then
-   OTHER_EMOJI, shared by all three; it starts on its eyes. The choice is
+   centre. A view's emoji are its own eyes (looking its way), then its
+   own row of VIEW_EMOJI; it starts on its eyes. The choice is
    kept in localStorage, so it holds after the modal closes, across the
    slug pages and over a reload.
 
@@ -14,7 +14,7 @@
                             view's 400px QR and eyes its own emoji, both
                             site-root relative
      QR_FRAC                share of a QR image's width that is modules
-     OTHER_EMOJI            [src], the emoji every view can have besides
+     VIEW_EMOJI             per view, [src], the emoji it can have besides
                             its eyes, site-root relative
      EMOJI_COUNT            how many emoji a view can choose from
      EMOJI_SIZE             an emoji's side, as a share of the QR image's
@@ -41,30 +41,32 @@ export const QR_FRAC = 370 / 400; // modules 15..385px of 400
 
 // Microsoft's Fluent Emoji, flat style (MIT: no credit shown, but keep
 // assets/img/emoji/LICENSE with them)
-// objects, not faces; the first few are about looking, as the eyes are
-export const OTHER_EMOJI = [
-  "glasses",
-  "dark-sunglasses",
-  "magnifying-glass",
-  "telescope",
-  "camera",
-  "light-bulb",
-  "key",
-  "balloon",
-  "gift",
-  "alarm-clock",
-].map((name) => `assets/img/emoji/${name}.svg`);
-export const EMOJI_COUNT = 1 + OTHER_EMOJI.length;
+// sets of three, one emoji per view: left, centre, right
+const SETS = [
+  ["right-facing-fist", "oncoming-fist", "left-facing-fist"],
+  ["green-book", "blue-book", "orange-book"],
+  ["chart-increasing", "bar-chart", "chart-decreasing"],
+  ["tiger", "leopard", "cat"],
+  ["hatching-chick", "front-facing-baby-chick", "baby-chick"],
+  ["seedling", "rose", "wilted-flower"],
+  ["globe-americas", "globe-europe-africa", "globe-asia-australia"],
+  ["waning-crescent-moon", "full-moon", "waxing-crescent-moon"],
+  ["speaker-low", "speaker-medium", "speaker-high"],
+];
+export const VIEW_EMOJI = VIEWS.map((_, v) =>
+  SETS.map((set) => `assets/img/emoji/${set[v]}.svg`),
+);
+export const EMOJI_COUNT = 1 + SETS.length;
 // as in the panel art (1_left.png etc.), centred
 export const EMOJI_SIZE = 0.24;
 
-// renamed whenever OTHER_EMOJI changes, so a choice saved against an
+// renamed whenever VIEW_EMOJI changes, so a choice saved against an
 // older list starts again on the eyes
-const STORAGE_KEY = "coded-life:lens-emoji-objects";
+const STORAGE_KEY = "coded-life:lens-emoji-sets";
 const SITE_ROOT = new URL("../../../", import.meta.url);
 
 const fit = (i) => (Number.isInteger(i) && i >= 0 && i < EMOJI_COUNT ? i : 0);
-const emojiPath = (view, i) => (i === 0 ? VIEWS[view].eyes : OTHER_EMOJI[i - 1]);
+const emojiPath = (view, i) => (i === 0 ? VIEWS[view].eyes : VIEW_EMOJI[view][i - 1]);
 
 let choice = read();
 const listeners = new Set();
@@ -114,7 +116,7 @@ export function loadLensImages() {
   imagesLoad ??= Promise.all([
     Promise.all(VIEWS.map((v) => loadImage(v.qr))),
     Promise.all(VIEWS.map((v) => loadImage(v.eyes))),
-    Promise.all(OTHER_EMOJI.map(loadImage)),
+    Promise.all(VIEW_EMOJI.map((list) => Promise.all(list.map(loadImage)))),
   ]).then(([qrs, eyes, others]) => ({ qrs, eyes, others }));
   return imagesLoad;
 }
@@ -126,7 +128,7 @@ export function drawLensView(ctx, images, view, i, size) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   const e = size * EMOJI_SIZE;
-  const emoji = i === 0 ? images.eyes[view] : images.others[i - 1];
+  const emoji = i === 0 ? images.eyes[view] : images.others[view][i - 1];
   ctx.drawImage(emoji, (size - e) / 2, (size - e) / 2, e, e);
 }
 

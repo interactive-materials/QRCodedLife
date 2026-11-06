@@ -35,6 +35,9 @@ import { getShape, onShapeChange, isDefaultShape } from "./prism-shape.js";
 const SCAM_COUNT = 2; // the scam modal's scam codes (survey, sticker)
 const CLOSE_DELAY = 450; // ms after a modal closes: its slide-out is 280ms
 const SESSION_PREFIX = "coded-life:remark-shown:";
+// every lens emoji the obelisk has shown, as "view:index", kept across
+// visits and reloads (renamed with lens-emoji.js's STORAGE_KEY)
+const LENS_SEEN_KEY = "coded-life:lens-emoji-seen-sets";
 // shown at most once per browser tab
 const ONCE = new Set(["tutorial", "scamOne"]);
 
@@ -68,6 +71,41 @@ function markShown(key) {
     sessionStorage.setItem(SESSION_PREFIX + key, "1");
   } catch {
     // storage blocked: it may show again after a reload
+  }
+}
+
+/* ---- lens emoji already shown -------------------------------------------- */
+const lensSeen = readLensSeen();
+
+function readLensSeen() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LENS_SEEN_KEY));
+    if (Array.isArray(stored)) return new Set(stored);
+  } catch {
+    // nothing stored, or storage blocked
+  }
+  return new Set();
+}
+
+// the index all three views show (0 = their eyes, 1.. a set), or -1 when
+// they differ
+function triplet(choice) {
+  return choice.every((i) => i === choice[0]) ? choice[0] : -1;
+}
+
+// the eyes never count as new
+const lensKeys = () =>
+  getChoice().flatMap((i, v) => (i === 0 ? [] : [`${v}:${i}`]));
+const lensNew = () => lensKeys().some((k) => !lensSeen.has(k));
+
+// the emoji on the obelisk now count as shown
+function markLensSeen() {
+  if (!lensNew()) return;
+  lensKeys().forEach((k) => lensSeen.add(k));
+  try {
+    localStorage.setItem(LENS_SEEN_KEY, JSON.stringify([...lensSeen]));
+  } catch {
+    // storage blocked: they count as shown until the page reloads
   }
 }
 
@@ -152,8 +190,15 @@ function due() {
       return isDefaultShape() ? "angleBack" : "angleChanged";
     case "lens-l":
     case "lens-c":
-    case "lens-r":
-      return same(getChoice(), start.choice) ? null : "lensChanged";
+    case "lens-r": {
+      // all three on one set, which they weren't when the modal opened
+      // (a triplet broken and made again counts again): that set's own
+      const set = triplet(getChoice());
+      if (set >= 0 && set !== triplet(start.choice)) return `lensSet${set}`;
+      // otherwise only an emoji the obelisk has never shown (never the
+      // eyes; whatever it showed on load counts as shown)
+      return lensNew() ? "lensChanged" : null;
+    }
     case "handdrawn": {
       const found = getFound();
       if (found.every(Boolean)) {
@@ -200,6 +245,7 @@ function onModalClose() {
   if (!visit) return;
   const key = due();
   visit = null;
+  markLensSeen(); // the obelisk shows them from now on
 
   if (!key || !isOn(key)) {
     hide();
@@ -251,6 +297,7 @@ function tutorial(ready) {
 export function initRemarks({ ready } = {}) {
   if (!REMARKS_ON) return;
   dialog = document.getElementById("qr-modal");
+  markLensSeen(); // the emoji the obelisk starts on
 
   document.addEventListener("modal:open", onModalOpen);
   document.addEventListener("modal:close", onModalClose);

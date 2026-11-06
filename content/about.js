@@ -13,7 +13,7 @@ const copy = {
   title: "Coded Life",
   // each entry a paragraph, or { part } for a heading over the next ones
   body: [
-    "Coded Life is an exhibition designed by the Interactive Materials Lab in the Department of Design at the National University of Singapore. This exhibition digs deep into the QR code, a familiar thing we see and use every day. This website is an interactive digital twin of the physical exhibition at Sengkang MRT station.",
+    "Coded Life is an exhibition designed by the Interactive Materials Lab in the Department of Design at the National University of Singapore. This exhibition digs deep into the QR&nbsp;code, a familiar thing we see and use every day. This website is an interactive digital twin of the physical exhibition at Sengkang MRT station.",
     { part: "Research & Design:" },
     "Clement Zheng<br>Yong Zhen Zhou<br>Vina Setiawaty<br>Stephanie Beh<br>Jan Juarez<br>Tan Ler Shan<br>Danikh Nizam<br>Myron Teo",
     { part: "Web Development:" },

@@ -2,8 +2,11 @@
    background-plain.js — the sky behind the obelisk: a gradient dome,
    shaded by view direction alone, so it reads as infinitely far away.
 
-   Above the horizon it fades from `horizon` up to `zenith` (`exponent`
-   shapes the fade: > 1 keeps the pale band near the horizon wider);
+   Above the horizon it fades from `horizon` up to `zenith`, reaching it
+   `reach` (0..1) of the way to straight up and staying there above
+   (`exponent` shapes the fade: > 1 keeps the pale band near the horizon
+   wider). The camera always looks level, so the top of the view is only
+   ~17° up (sin ≈ 0.3): `reach` puts the whole fade on screen;
    below it, past the floor's edge, it fades from `horizon` down to
    `ground` over `groundFade` (0..1 of the way to straight down).
 
@@ -36,7 +39,8 @@ import * as THREE from "three";
 export const SKY = {
   // zenith (straight up), horizon and ground (below the horizon, beyond
   // the floor) come from TIME_OF_DAY; set them here to pin one sky
-  exponent: 0.6,
+  reach: 0.2, // zenith colour by ~12° up, below the top of the view
+  exponent: 0.7, // < 1: the colour climbs quickly off the horizon
   groundFade: 0.08,
 
   fade: 0.8, // seconds setSky takes to ease to new colours
@@ -52,14 +56,16 @@ export const animated = false;
 
 // Sky colours by local hour (0..24), in order. Between two keyframes the
 // colours blend; the list wraps from the last back to the first.
-const DAY = { zenith: "#a9c6e8", horizon: "#f4efe3", ground: "#e6e0d4" };
-const NIGHT = { zenith: "#1f2747", horizon: "#4a4f6e", ground: "#3a3d52" };
+const DAY = { zenith: "#7fa8dc", horizon: "#f4efe3", ground: "#e6e0d4" };
+// deep navy up to light blue, faded over a taller stretch of sky
+const NIGHT = { zenith: "#8fb3dc", horizon: "#0d1636", ground: "#141d3a", reach: 0.4, exponent: 0.9 };
+// A keyframe may also set `reach` and `exponent` (see SKY); they blend too.
 export const TIME_OF_DAY = [
   { hour: 4.5, ...NIGHT },
-  { hour: 6, zenith: "#7d8db5", horizon: "#f2c6aa", ground: "#d8c4b6" }, // dawn
+  { hour: 6, zenith: "#6577a6", horizon: "#f2c6aa", ground: "#d8c4b6" }, // dawn
   { hour: 8, ...DAY },
   { hour: 17, ...DAY },
-  { hour: 19, zenith: "#6a7aa8", horizon: "#f0b08a", ground: "#d2b3a0" }, // dusk
+  { hour: 19, zenith: "#4f5f94", horizon: "#f0b08a", ground: "#d2b3a0" }, // dusk
   { hour: 20.5, ...NIGHT },
 ];
 
@@ -79,7 +85,7 @@ function currentHour() {
   return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
 }
 
-// the sky colours for a local hour, as hex strings
+// the sky colours (hex strings), reach and exponent for a local hour
 export function skyAt(hour = currentHour()) {
   const keys = TIME_OF_DAY;
   // the last keyframe at or before `hour`, wrapping round midnight
@@ -93,6 +99,11 @@ export function skyAt(hour = currentHour()) {
   const c = new THREE.Color();
   for (const key of ["zenith", "horizon", "ground"]) {
     out[key] = "#" + c.lerpColors(new THREE.Color(a[key]), new THREE.Color(b[key]), t).getHexString();
+  }
+  for (const key of ["reach", "exponent"]) {
+    const from = a[key] ?? SKY[key];
+    const to = b[key] ?? SKY[key];
+    out[key] = from + (to - from) * t;
   }
   return out;
 }
@@ -112,13 +123,14 @@ const fragmentShader = /* glsl */ `
   uniform vec3 zenith;
   uniform vec3 horizon;
   uniform vec3 ground;
+  uniform float reach;
   uniform float exponent;
   uniform float groundFade;
   varying vec3 vDir;
   void main() {
     float h = normalize(vDir).y; // -1 straight down .. 1 straight up
     vec3 color = h >= 0.0
-      ? mix(horizon, zenith, pow(h, exponent))
+      ? mix(horizon, zenith, smoothstep(0.0, 1.0, pow(min(h / reach, 1.0), exponent)))
       : mix(horizon, ground, smoothstep(0.0, groundFade, -h));
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
@@ -127,7 +139,7 @@ const fragmentShader = /* glsl */ `
 `;
 
 export function buildSky(options = {}) {
-  const s = { ...skyAt(), ...SKY, ...options };
+  const s = { ...SKY, ...skyAt(), ...options };
   const uniforms = {};
   for (const [key, value] of Object.entries(s)) {
     if (key === "fade") continue;
@@ -158,7 +170,7 @@ export function buildSky(options = {}) {
 }
 
 export function setSky(sky, options = {}) {
-  const s = { ...skyAt(), ...SKY, ...options };
+  const s = { ...SKY, ...skyAt(), ...options };
   const u = sky.material.uniforms;
   const from = {};
   const to = {};

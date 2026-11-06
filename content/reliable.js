@@ -31,7 +31,7 @@ const COVERED = {
     covered: "0%",
     scans: true,
     ratio: 564 / 561,
-    caption: "This QR code is not damaged at all,<br>so it works really well",
+    caption: "This QR&nbsp;code is not damaged at all,<br>so it works really well",
   },
   "002": { covered: "~7%", scans: true, ratio: 564 / 561 },
   "003": { covered: "~10%", scans: true, ratio: 564 / 561 },
@@ -42,7 +42,7 @@ const COVERED = {
     covered: "~40%",
     scans: false,
     ratio: 646 / 561,
-    caption: "This QR code is damaged by ~40%.<br> It is not scannable, so how did you get here?",
+    caption: "This QR&nbsp;code is damaged by ~40%.<br> It is not scannable, so how did you get here?",
   },
 };
 // a version's own caption, if it has one, replaces the usual
@@ -50,7 +50,7 @@ const COVERED = {
 // shown when there's no ?v=: the QR code's covering, animated (561 x 561)
 const DEFAULT_FIGURE = {
   covered: { src: img("reliability-1.gif"), ratio: 1 },
-  caption: "Damaged QR codes might still be scannable.<br>Can you scan all of them?",
+  caption: "Damaged QR&nbsp;codes might still be scannable.<br>Can you scan all of them?",
 };
 
 function coveredFigure() {
@@ -60,27 +60,27 @@ function coveredFigure() {
   const { covered, ratio, caption } = COVERED[version];
   return {
     covered: { src: img(`${version}.png`), ratio },
-    caption: caption ?? `This QR code is damaged by ${covered},<br>yet you could still scan it`,
+    caption: caption ?? `This QR&nbsp;code is damaged by ${covered},<br>yet you could still scan it`,
   };
 }
 
 const copy = {
-  subtitle: "What makes a QR code robust?",
-  title: "Reliable QR Codes",
+  subtitle: "What makes a QR&nbsp;code robust?",
+  title: "Reliable QR&nbsp;Codes",
   // a figure with src is a picture, one with covered the covered QR code;
   // one with panels is a placeholder still: a dashed box per panel,
   // labelled with what goes there, and the caption under them
   body: [
     {
-      text: "A QR code contains not only data, but also information needed to correct it if it gets damaged. The error correction information enables QR codes to be decoded even when some parts are missing or covered, like when a logo is placed on top of it.",
+      text: "A QR&nbsp;code contains not only data, but also information needed to correct it if it gets damaged. The error correction information enables QR&nbsp;codes to be decoded even when some parts are missing or covered, like when a logo is placed on top of it.",
       figure: coveredFigure, // a function: chosen when the modal renders
     },
     {
-      text: "A QR code can be made with different levels of error correction, depending on where it is used. The lowest level is usually recommended for digital use, and the highest for print. A higher level of error correction also enables a bigger logo to be placed in the middle of the QR code.",
+      text: "A QR&nbsp;code can be made with different levels of error correction, depending on where it is used. The lowest level is usually recommended for digital use, and the highest for print. A higher level of error correction also enables a bigger logo to be placed in the middle of the QR&nbsp;code.",
       figure: {
         src: img("matrix.png"),
-        alt: "A grid of QR codes, a row per error correction level, with a bigger logo in each column and whether each QR code scans",
-        caption: "Comparison of three levels of error correction and the size of the logo that can be placed in the middle of the QR codes",
+        alt: "A grid of QR&nbsp;codes, a row per error correction level, with a bigger logo in each column and whether each QR&nbsp;code scans",
+        caption: "Comparison of three levels of error correction and the size of the logo that can be placed in the middle of the QR&nbsp;codes",
       },
     },
   ],

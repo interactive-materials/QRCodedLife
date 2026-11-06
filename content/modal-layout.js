@@ -40,10 +40,35 @@ export const placeholder = ({ panels, caption }) => `
             ${caption ? `<figcaption>${caption}</figcaption>` : ""}
           </figure>`;
 
+// a photo of an artwork, under its modal's copy, in the usual figure
+// style (.modal__figure): src is a full URL (an artwork's own
+// <slug>/assets/<slug>.jpg). Set SHOW_PHOTO_CAPTIONS to false to hide
+// the captions; while hidden, a caption is its photo's alt text instead.
+// A photo with no caption has alt (its alt text) instead.
+// photos(list) puts an artwork's photos in one figure, one under the
+// other in the order given, and their captions under them all
+const SHOW_PHOTO_CAPTIONS = true;
+const plain = (html) => html.replace(/<[^>]*>/g, "");
+export const photos = (list) => {
+  const captions = SHOW_PHOTO_CAPTIONS ? list.map((p) => p.caption).filter(Boolean) : [];
+  const img = ({ src, caption, alt }) => {
+    const altText = alt ?? (SHOW_PHOTO_CAPTIONS || !caption ? "" : plain(caption));
+    return `<img src="${src}" alt="${altText}" loading="lazy" />`;
+  };
+  return `
+          <figure class="modal__figure modal__figure--photo">
+            ${list.map(img).join("")}
+            ${captions.length ? `<figcaption>${captions.join("<br>")}</figcaption>` : ""}
+          </figure>`;
+};
+
+// one photo on its own
+export const photo = (p) => photos([p]);
+
 // titleId lets the <dialog>'s aria-labelledby point at the heading
 export function renderModal(entry, { titleId, fallbackTitle = "" } = {}) {
   return `
-    <p class="modal__subtitle">${entry.subtitle || "QR code"}</p>
+    <p class="modal__subtitle">${entry.subtitle || "QR&nbsp;code"}</p>
     <h2 class="modal__title" id="${titleId}">${entry.title || fallbackTitle}</h2>
     <div class="modal__body">
       ${paragraphs(entry.body)}

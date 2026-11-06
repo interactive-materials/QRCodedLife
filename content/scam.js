@@ -11,7 +11,8 @@
    HTML.
 
    The top is plain HTML, not a canvas: the question, and under it the
-   shop scene (scam/assets/scam-scene.png, as big as fits) with a button
+   shop scene (scam/assets/scam-scene.png, the modal's full width,
+   cropped top and bottom alike when it's too tall to fit) with a button
    over each of its three QR codes, placed as they are in scam-scene.svg.
    Tapping one lays a panel over the picture, saying whether that QR code
    is the scam and why; its × (or Escape) takes it away again.
@@ -39,6 +40,7 @@ import {
   resetStamps,
   onStampChange,
 } from "../assets/js/obelisk/scam-stamps.js";
+import { photos } from "./modal-layout.js";
 
 const SCENE_SRC = new URL("../scam/assets/scam-scene.png", import.meta.url).href;
 const SCENE_RATIO = 2532 / 1904; // the picture's width / height
@@ -46,17 +48,29 @@ const icon = (name) => new URL(`../assets/img/${name}`, import.meta.url).href;
 const EXPAND_SRC = icon("expand_1.svg");
 const MINIMISE_SRC = icon("minimise.svg");
 
+// the printed artwork's photos, under the copy, one under the other
+const PHOTOS = [
+  {
+    src: new URL("../scam/assets/scam.jpg", import.meta.url).href,
+    caption: "Check out <i>Be&nbsp;Qareful</i> at Sengkang&nbsp;MRT&nbsp;Station!",
+  },
+  {
+    src: new URL("../scam/assets/scam-angle.jpg", import.meta.url).href,
+    alt: "The scam QR code, seen from an angle",
+  },
+];
+
 const copy = {
   title: "Be careful of what you scan!",
-  question: "Which one is the scam QR code?",
+  question: "Which one is the scam QR&nbsp;code?",
   reset: "Reset",
   expand: "Expand the picture",
   collapse: "Shrink the picture",
-  sceneLabel: "A shop with three QR codes: on the counter, by the door and on the window",
+  sceneLabel: "A shop with three QR&nbsp;codes: on the counter, by the door and on the window",
   body: [
-    "QR codes are everywhere, and many of us scan any code we see without a second thought.",
-    "However, QR codes may contain harmful links or malware. Bad actors have disguised QR codes to mimic legitimate ones for malicious purposes.",
-    "Always check the URL embedded in a QR code before clicking on it, and avoid downloading apps through a QR code.",
+    "QR&nbsp;codes are everywhere, and many of us scan any code we see without a second thought.",
+    "However, QR&nbsp;codes may contain harmful links or malware. Bad actors have disguised QR&nbsp;codes to mimic legitimate ones for malicious purposes.",
+    "Always check the URL embedded in a QR&nbsp;code before clicking on it, and avoid downloading apps through a QR&nbsp;code.",
   ],
 };
 
@@ -76,19 +90,19 @@ const copy = {
 const STAMP_TILT = -12; // deg
 const CODES = [
   {
-    label: "The Scan to Pay QR code on the counter",
+    label: "The Scan to Pay QR&nbsp;code on the counter",
     box: [9.5, 59.8, 11.4, 19.3],
     scam: false,
-    title: "QR code for payment",
+    title: "QR&nbsp;code for payment",
     body: [
-      "This QR code sits on the counter and has the official SGQR logo. While it is usually safe to scan this QR code using payment apps, it is best practice to check that the shop's name shown is correct!"
+      "This QR&nbsp;code sits on the counter and has the official SGQR logo. While it is usually safe to scan this QR&nbsp;code using payment apps, it is best practice to check that the shop's name shown is correct!"
     ],
   },
   {
-    label: "The membership poster's QR code on the window",
+    label: "The membership poster's QR&nbsp;code on the window",
     box: [90.75, 30.7, 9.0, 19.8],
     scam: true,
-    title: "Phishing QR code",
+    title: "Phishing QR&nbsp;code",
     // the phone frame round the poster's QR
     key: "survey",
     surface: {
@@ -98,14 +112,14 @@ const CODES = [
       width: 4.5,
     },
     body: [
-      "Nothing in the world is free, so always be careful of monetary promises. This QR code may lead you to a phishing site or ask you to download malicious software. Only download apps from official sources, and check the link before visiting any site."
+      "Nothing in the world is free, so always be careful of monetary promises. This QR&nbsp;code may lead you to a phishing site or ask you to download malicious software. Only download apps from official sources, and check the link before visiting any site."
     ],
   },
   {
-    label: "The Scan to Pay QR code on the posters by the door",
+    label: "The Scan to Pay QR&nbsp;code on the posters by the door",
     box: [36.6, 36.6, 5.9, 11.2],
     scam: true,
-    title: "Fake payment QR code",
+    title: "Fake payment QR&nbsp;code",
     // the sticker, the same art as the obelisk's scam panel: the stamp
     // over its QR
     key: "sticker",
@@ -116,7 +130,7 @@ const CODES = [
       width: 2.6,
     },
     body: [
-      "Although it is inside the shop, this QR code does not have the official logo and is stuck on top of an unrelated poster. It may have been placed there by people with malicious intent, hoping to trick customers into paying someone other than the shop."
+      "Although it is inside the shop, this QR&nbsp;code does not have the official logo and is stuck on top of an unrelated poster. It may have been placed there by people with malicious intent, hoping to trick customers into paying someone other than the shop."
     ],
   },
 ];
@@ -137,6 +151,7 @@ export default function render({ titleId }) {
           <p class="scam__question">${copy.question}</p>
           <div class="scam__scene">
             <div class="scam__picture" role="group" aria-label="${copy.sceneLabel}">
+              <div class="scam__view">
               <img src="${SCENE_SRC}" alt="" />
               <div class="scam__stamps">
                 ${CODES.map(({ key, surface }) => surface ? `
@@ -148,6 +163,7 @@ export default function render({ titleId }) {
               ${CODES.map(({ label, box: [left, top, width, height] }, i) => `
               <button class="scam__code" type="button" data-code="${i}" aria-label="${label}"
                 style="left: ${left}%; top: ${top}%; width: ${width}%; height: ${height}%"></button>`).join("")}
+              </div>
               <button class="scam__expand" type="button" data-expand aria-pressed="false" aria-label="${copy.expand}">
                 <img src="${EXPAND_SRC}" alt="" data-expand-icon />
               </button>
@@ -161,6 +177,7 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${photos(PHOTOS)}
         </div>
       </div>
     </div>

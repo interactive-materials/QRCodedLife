@@ -39,17 +39,30 @@ import {
   resetFound,
   onFoundChange,
 } from "../assets/js/obelisk/qrossword.js";
+import { photos } from "./modal-layout.js";
+
+// the printed artwork's photos, under the copy, one under the other
+const PHOTOS = [
+  {
+    src: new URL("../handdrawn/assets/handdrawn.jpg", import.meta.url).href,
+    caption: "Check out <i>Qrossword</i> at Sengkang&nbsp;MRT&nbsp;Station!",
+  },
+  {
+    src: new URL("../handdrawn/assets/handdrawn-angle.jpg", import.meta.url).href,
+    alt: "Qrossword, seen from an angle",
+  },
+];
 
 const copy = {
-  title: "Should QR codes be read by humans too?",
-  stageLabel: "QROSSWORD, a hand-drawn QR code that is also a word search",
+  title: "Should QR&nbsp;codes be read by humans too?",
+  stageLabel: "QROSSWORD, a hand-drawn QR&nbsp;code that is also a word search",
   listHeading: "Find the NEL stations!",
   expand: "Expand the word search",
   collapse: "Shrink the word search",
   reset: "Reset",
   body: [
-    "The QR code is optimized to be read by a computer and unreadable to humans.",
-    "<i>Qrossword</i> replaces the black squares of QR code with handwritten letters, infusing the irregularity of handwriting into a scannable QR code.",
+    "The QR&nbsp;code is optimized to be read by a computer and unreadable to humans.",
+    "<i>Qrossword</i> replaces the black squares of QR&nbsp;code with handwritten letters, infusing the irregularity of handwriting into a scannable QR&nbsp;code.",
     "How many NEL station names can you find?",
   ],
 };
@@ -105,6 +118,7 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${photos(PHOTOS)}
         </div>
       </div>
     </div>

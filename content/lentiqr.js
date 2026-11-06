@@ -29,19 +29,26 @@ import {
   qrSrc,
   emojiSrc,
 } from "../assets/js/obelisk/lens-emoji.js";
+import { photo } from "./modal-layout.js";
 
 const SIDES = ["left", "centre", "right"];
+// each view's photo of the printed artwork, under the copy
+const SLUGS = ["lens-l", "lens-c", "lens-r"];
+const photoSrc = (view) =>
+  new URL(`../${SLUGS[view]}/assets/${SLUGS[view]}.jpg`, import.meta.url).href;
 
 const copy = {
-  title: "3 in 1 QR code, anyone?",
-  caption: "Customise your own QR code",
-  stageLabel: (side) => `The lenticular QR code as seen from the ${side}`,
+  title: "3 in 1 QR&nbsp;code, anyone?",
+  caption: "Customise your own QR&nbsp;code",
+  stageLabel: (side) => `The lenticular QR&nbsp;code as seen from the ${side}`,
   prev: "Previous emoji",
   next: "Next emoji",
   picked: (i) => `Emoji ${i + 1} of ${EMOJI_COUNT}`,
+  // the same for all three views
+  photoCaption: "Check out <i>LentiQR</i> at Sengkang&nbsp;MRT&nbsp;Station!",
   body: (side) => [
-    "A QR code graphic only contains one data source.",
-    "Through lenticular printing, <i>LentiQR</i> explores embedding three different data sources into the QR code based on the angle scanned.",
+    "A QR&nbsp;code graphic only contains one data source.",
+    "Through lenticular printing, <i>LentiQR</i> explores embedding three different data sources into the QR&nbsp;code based on the angle scanned.",
     // "[Placeholder: how a lenticular print works — copy to come.]",
   ],
 };
@@ -87,6 +94,7 @@ export function lensModal(view) {
           <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
           <div class="modal__body">
             ${copy.body(side).map((p) => `<p>${p}</p>`).join("")}
+            ${photo({ src: photoSrc(view), caption: copy.photoCaption })}
           </div>
         </div>
       </div>

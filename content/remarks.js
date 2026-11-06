@@ -23,18 +23,18 @@ export const remarks = {
   // with the timer below, or at the first touch, click, scroll or key
   tutorial: {
     on: true,
-    text: "Welcome to Coded Life!\n\nClick on any QR code to start",
+    text: "Welcome to Coded Life!\n\nClick on any QR code to start",
   },
 
   // Scam: once per tab, a visit that stamped only the first scam code
   scamOne: {
     on: true,
-    text: "Are you sure you have found all of the scam QR codes?",
+    text: "Are you sure you have found all of the scam QR codes?",
   },
   // Scam: a visit that stamped the second; again after a Reset and refind
   scamBoth: {
     on: true,
-    text: "You have found both scam QR codes!",
+    text: "You have found both scam QR codes!",
   },
 
   // Angle: any slider change during the visit that leaves it off the original shape
@@ -81,9 +81,24 @@ export const remarks = {
     text: "The floor looks too clean",
   },
 
-  // Lenticular: the emoji changed during the visit
+  // Lenticular: the visit left an emoji the obelisk has never shown
   lensChanged: {
     on: true,
     text: "A new emoji discovered",
   },
+
+  // Lenticular: the visit made all three views show the same emoji,
+  // which they didn't when the modal opened (instead of lensChanged).
+  // 0 is their eyes (they start on them, so only after a change); the
+  // others are the sets' rows in lens-emoji.js; left / centre / right
+  lensSet0: { on: true, text: "Where are you looking at?" }, // eyes
+  lensSet1: { on: true, text: "Fist bump!" }, // 🤜 👊 🤛
+  lensSet2: { on: true, text: "Are we at the library?" }, // 📗 📘 📙
+  lensSet3: { on: true, text: "stonks" }, // 📈 📊 📉
+  lensSet4: { on: true, text: "Families of cats" }, // 🐅 🐆 🐈
+  lensSet5: { on: true, text: "The chicks will grow up well" }, // 🐣 🐥 🐤
+  lensSet6: { on: true, text: "It's the cycle of life" }, // 🌱 🌹 🥀
+  lensSet7: { on: true, text: "We have seen the world" }, // 🌎 🌍 🌏
+  lensSet8: { on: true, text: "The sea is confused today..." }, // 🌒 🌕 🌘
+  lensSet9: { on: true, text: "Is it too loud?" }, // 🔈 🔉 🔊
 };

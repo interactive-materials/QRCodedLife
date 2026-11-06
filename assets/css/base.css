@@ -215,6 +215,8 @@ dialog.modal {
      rule and the title */
   --modal-gap: 1.5rem;
   --modal-text-gap: 0.5rem; /* a heading (title or part) to its paragraph */
+  /* the title to the copy, and the copy to an artwork's photo */
+  --modal-title-gap: 1.5rem;
   /* a picture's caption, and a placeholder's labels: white, greyed */
   --caption: rgba(255, 255, 255, 0.85);
 }
@@ -327,6 +329,12 @@ dialog.modal[open]::backdrop {
    size as a share of it (longer copy still scrolls in .modal__inner) */
 .modal__inner > div {
   height: 100%;
+}
+
+/* an artwork's modal (an interactive .modal__top): only the copy below
+   the interaction scrolls (.modal__text), never the whole modal */
+.modal__inner:has(.modal__top) {
+  overflow-y: hidden;
 }
 
 /* a fixed top and a scrolling text section: .modal__layout fills
@@ -537,10 +545,36 @@ dialog.modal[open]::backdrop {
   align-items: flex-start;
 }
 
+/* minimised, the picture is the scene's full width; when that makes it
+   taller than the scene, it's cropped top and bottom alike (--crop each)
+   and centred down it. Only .scam__view (the picture, its stamps and
+   its QR codes' buttons) is cropped, by its clip-path, which also stops
+   a cropped-off part from being tapped; the expand button sits in the
+   visible part's corner, and the answer is centred in it. The picture's
+   own box, which runs past the scene over the question and Reset, lets
+   taps through. Expanded, it fits whole (below). */
 .scam__picture {
   position: relative;
-  width: min(100cqw, 100cqh * var(--ratio));
+  width: 100cqw;
   aspect-ratio: var(--ratio);
+  --crop: max(0px, (100cqw / var(--ratio) - 100cqh) / 2);
+  margin-top: calc(-1 * var(--crop));
+  pointer-events: none;
+}
+
+.scam__picture > * {
+  pointer-events: auto;
+}
+
+.scam__view {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(var(--crop) 0 round 6px);
+}
+
+.modal__layout.is-expanded .scam__picture {
+  width: min(100cqw, 100cqh * var(--ratio));
+  --crop: 0px;
 }
 
 .scam__picture img {
@@ -659,7 +693,7 @@ dialog.modal[open]::backdrop {
 .scam__expand {
   position: absolute;
   z-index: 0; /* under the answer */
-  bottom: 4%;
+  bottom: calc(var(--crop) + 4%); /* in from the visible part's edge */
   right: calc(4% / var(--ratio));
   width: 9.4%;
   aspect-ratio: 1;
@@ -744,10 +778,10 @@ dialog.modal[open]::backdrop {
   line-height: 1.45;
 }
 
-/* when the scene is wider than the picture (the picture fits its height,
-   so it's narrower than the modal), the panel spans the modal's full
-   width instead: out past the picture's sides to the scene's edges.
-   The ratio is SCENE_RATIO in content/scam.js. */
+/* when the scene is wider than the picture's shape (minimised, the
+   picture is cropped top and bottom to fit it), the panel spans the
+   scene's full width instead, to keep it short. The ratio is SCENE_RATIO
+   in content/scam.js. */
 @container (min-aspect-ratio: 2532 / 1904) {
   .scam__answer {
     left: calc((100% - 100cqw) / 2);
@@ -836,7 +870,7 @@ p.scam__verdict {
 
 .modal__part {
   margin: 1.5rem 0 var(--modal-text-gap);
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   color: var(--fg);
 }
 
@@ -894,10 +928,11 @@ p.scam__verdict {
   margin: 0 0 var(--modal-text-gap);
   font-family: var(--font-title);
   font-weight: 600; /* as on the totem: NEL Rounded Regular */
-  font-size: 1.5rem;
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
-  color: var(--cyan);
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin-bottom: var(--modal-title-gap);
+  color: #FFF;
+  text-wrap: pretty;
 }
 
 .modal__body {
@@ -917,12 +952,15 @@ p.scam__verdict {
   border-radius: 8px;
 }
 
-/* a picture in the copy with its caption, both centred */
-/* inset 3rem each side; the picture and its caption share the width */
-/* 1.5rem at the sides up to 720px wide, 3rem on bigger screens */
+/* a picture in the copy with its caption, both centred. The figure's
+   inset is the only limit on its size: 1.5rem at the sides up to 720px
+   wide, 3rem on bigger screens, and the picture fills the rest */
 .modal__figure {
   margin: 1.25rem 1.5rem;
   text-align: center;
+  /* a lone picture's size (--single, below): as the reliable modal's
+     covered QR code's QR */
+  --single-size: min(60%, 14rem);
 }
 
 @media (min-width: 720px) {
@@ -933,22 +971,42 @@ p.scam__verdict {
 
 .modal__figure img {
   display: block;
-  width: min(60%, 16rem);
+  width: 100%;
   height: auto;
   margin: 0 auto;
   border-radius: 0;
   background: #fff;
 }
 
-/* a picture with its own transparent backing, the text's full width */
+/* a picture with its own transparent backing */
 .modal__figure--wide img {
-  width: 100%;
   background: none;
 }
 
-/* the standard size, on no white backing (content/anatomy.js) */
+/* on no white backing either (content/anatomy.js) */
 .modal__figure--clear img {
   background: none;
+}
+
+/* an artwork's photo, under its copy (photo() in content/modal-layout.js):
+   as far below the copy as the copy looks below the title. The title's
+   gap reads ~0.45rem wider than its margin (the title's and the first
+   line's leading, from the title's baseline to the copy's capitals), and
+   the photo's hard top edge has none, so it gets that much more */
+.modal__figure--photo {
+  margin-top: calc(var(--modal-title-gap) + 0.45rem);
+}
+
+/* an artwork's photos, one under the other, a little apart, with their
+   caption under the last */
+.modal__figure--photo img + img {
+  margin-top: 0.75rem;
+}
+
+/* one picture on its own in the anatomy and contrast modals: the
+   reliable modal's gif's size, not the figure's full width */
+.modal__figure--single img {
+  width: var(--single-size);
 }
 
 /* the reliable modal's covered QR code (content/reliable.js): the QR, the
@@ -956,7 +1014,7 @@ p.scam__verdict {
    right by its --ratio (width / height), however much the covering
    spills over, and the whole image is centred */
 .modal__figure--covered {
-  --qr: min(60%, 14rem);
+  --qr: var(--single-size);
 }
 
 .modal__figure--covered img {
@@ -1033,9 +1091,9 @@ p.scam__verdict {
 
 /* About modal: everything white except the subtitle; links underlined
    only on hover (or keyboard focus) */
-#about-modal .modal__title{
+/* #about-modal .modal__title{
   color: var(--cyan);
-}
+} */
 
 #about-modal .modal__body,
 #about-modal .modal__body * {

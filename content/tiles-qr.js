@@ -24,17 +24,30 @@ import {
   setPattern,
   onPatternChange,
 } from "../assets/js/obelisk/floor-pattern.js";
+import { photos } from "./modal-layout.js";
 
 const TILE_SRC = new URL("../tiles-qr/assets/tile.svg", import.meta.url).href;
 
+// the printed artwork's photos, under the copy, one under the other
+const PHOTOS = [
+  {
+    src: new URL("../tiles-qr/assets/tiles-qr.jpg", import.meta.url).href,
+    caption: "Check out <i>Coded Nyonya</i> at Sengkang&nbsp;MRT&nbsp;Station!",
+  },
+  {
+    src: new URL("../tiles-qr/assets/tiles-angle.jpg", import.meta.url).href,
+    alt: "Coded Nyonya, seen from an angle",
+  },
+];
+
 const copy = {
-  title: "Would you decorate your house with QR codes?",
+  title: "Would you decorate your house with QR&nbsp;codes?",
   stageLabel: "A 3 by 3 grid to tile; the floor repeats its pattern",
   heading: "Make your own pattern:",
   removeAll: "Remove all",
   body: [
-    "A QR code is usually seen as a functional graphic with its familiar black and white squares standing out around cashiers and dining tables.",
-    "<i>Coded Nyonya</i> reimagines the QR code into a colorful pixelated motif arranged on a wall tile. The design you see draws inspiration from traditional Peranakan tile colors and patterns.",
+    "A QR&nbsp;code is usually seen as a functional graphic with its familiar black and white squares standing out around cashiers and dining tables.",
+    "<i>Coded Nyonya</i> reimagines the QR&nbsp;code into a colorful pixelated motif arranged on a wall tile. The design you see draws inspiration from traditional Peranakan tile colors and patterns.",
   ],
 };
 
@@ -103,6 +116,7 @@ export default function render({ titleId }) {
         <h2 class="modal__title" id="${titleId}">${copy.title}</h2>
         <div class="modal__body">
           ${copy.body.map((p) => `<p>${p}</p>`).join("")}
+          ${photos(PHOTOS)}
         </div>
       </div>
     </div>
