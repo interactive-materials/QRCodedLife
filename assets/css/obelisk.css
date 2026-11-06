@@ -77,7 +77,8 @@ body {
   font-family: var(--font-title);
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--navy);
+  /* color: var(--navy); */
+  color: #FFF;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -110,10 +111,11 @@ body {
   place-items: center;
   box-sizing: border-box;
   /* reversed: white fill, navy symbol */
-  border: 1.5px solid #3a4d94;
+  border: 1.5px solid #FFF;
   border-radius: 50%;
   background: transparent;
-  color: var(--navy);
+  /* color: var(--navy); */
+  color: #FFF;
   font-family: var(--font-title);
   font-weight: 700;
   font-synthesis: weight;
