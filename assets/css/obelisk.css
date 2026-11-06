@@ -130,10 +130,10 @@ body {
     max(0px, -2 * var(--q-y)) max(0px, 2 * var(--q-x));
 }
 
-/* .lens__step's hover, reversed: a navy ring on a light grey-blue */
-.hud__about:hover .hud__about-icon {
-  border-color: var(--navy);
-  background: #e6e9f4;
+/* hover: grows a little, as a QR code on the obelisk does (its colours
+   stay); .hud__about's transition eases it */
+.hud__about:hover {
+  transform: scale(1.1);
 }
 
 .hud__about:focus-visible {

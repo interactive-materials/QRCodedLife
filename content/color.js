@@ -47,7 +47,7 @@ const PHOTOS = [
 ];
 
 const copy = {
-  title: "Who said that QR&nbsp;codes have to be black and white?",
+  title: "Who said QR&nbsp;codes have to be black and white?",
   stageLabel: "The QOLORFUL QR&nbsp;code, in colour",
   sliderLabel: "From colour to black and white",
   caption: "Can you see\nthe QR code?",

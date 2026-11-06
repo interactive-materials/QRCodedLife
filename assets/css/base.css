@@ -193,11 +193,12 @@ dialog.modal {
   border-radius: var(--radius);
   /* navy in both themes, with light text; the canvases draw from these
      tokens too, so they match the modal */
-  --bg: #0b1a52;
-  --bg-elevated: var(--navy);
+  --bg: #444;
+  /* --bg-elevated: var(--navy); */
+  --bg-elevated: #222;
   --fg: #fff;
   --fg-muted: #fffa;
-  --border: #3a4d94;
+  --border: #666;
   background: var(--bg-elevated);
   color: var(--fg);
   box-shadow: var(--shadow);
@@ -759,7 +760,7 @@ dialog.modal[open]::backdrop {
   outline-offset: 2px;
 }
 
-/* the answer to a tapped QR code: a navy panel over the picture, 15% of
+/* the answer to a tapped QR code: a panel in the modal's colour over the picture, 15% of
    its width in from the sides, as tall as its copy and centred down it
    (spilling over its top and bottom alike when it's taller), its × in
    the top right corner; see-through, the scene blurred behind it */
@@ -771,7 +772,8 @@ dialog.modal[open]::backdrop {
   transform: translateY(-50%);
   z-index: 1;
   border-radius: 6px;
-  background: rgba(11, 26, 82, 0.75);
+  /* the modal's colour (--bg-elevated), 75% opaque */
+  background: color-mix(in srgb, var(--bg-elevated) 75%, transparent);
   backdrop-filter: blur(2px);
   box-shadow: var(--shadow);
   font-size: 0.75rem;
@@ -845,9 +847,9 @@ p.scam__verdict {
   padding: 0;
   border: none;
   background: transparent;
-  /* as the modal's own × (.modal__close): its muted colour, which
-     .modal__layout turns white in here, then white on hover */
-  color: #b8c0e0;
+  /* as the modal's own × (.modal__close): its muted colour, then white
+     on hover */
+  color: var(--fg-muted);
   line-height: 0;
   cursor: pointer;
   outline: none;
