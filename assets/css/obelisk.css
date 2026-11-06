@@ -207,11 +207,11 @@ body {
   place-items: center;
   padding: 2rem;
   text-align: center;
-  color: var(--fg-muted);
+  color: #fff;
   font-size: 0.95rem;
-  /* the stage's own cream gradient, so the half-loaded scene stays hidden
-     behind it until everything is in */
-  background: inherit;
+  /* the obelisk's navy (#112777), opaque, so the half-loaded scene stays
+     hidden behind it until everything is in */
+  background: var(--navy);
 }
 
 .stage__status[hidden] {
