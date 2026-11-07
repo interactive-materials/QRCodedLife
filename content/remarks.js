@@ -23,7 +23,7 @@ export const remarks = {
   // with the timer below, or at the first touch, click, scroll or key
   tutorial: {
     on: true,
-    text: "Welcome to Coded Life!\n\nClick on any QR code to start",
+    text: "Welcome to Coded Life!<br>Click on any QR code to start",
   },
 
   // Scam: once per tab, a visit that stamped only the first scam code

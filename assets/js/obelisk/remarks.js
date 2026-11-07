@@ -129,7 +129,7 @@ function show(key) {
     for (const para of remarks[key].text.split(/\n\s*\n/)) {
       const p = document.createElement("p");
       p.className = "remark__text";
-      p.textContent = para.trim();
+      p.innerHTML = para.trim(); // allows <b>, <i>, etc. in remark text
       card.append(p);
     }
     card.addEventListener("click", () => hide());
