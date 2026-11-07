@@ -780,20 +780,20 @@ dialog.modal[open]::backdrop {
   line-height: 1.45;
 }
 
-/* when the scene is wider than the picture's shape (minimised, the
-   picture is cropped top and bottom to fit it), the panel spans the
-   scene's full width instead, to keep it short. The ratio is SCENE_RATIO
-   in content/scam.js. */
-@container (min-aspect-ratio: 2532 / 1904) {
-  .scam__answer {
-    left: calc((100% - 100cqw) / 2);
-    right: calc((100% - 100cqw) / 2);
-  }
+/* minimised (the picture the scene's full width, cropped top and bottom
+   by --crop): the panel fills the visible part, 12px in from each of its
+   sides, scrolling if its copy is taller */
+.modal__layout:not(.is-expanded) .scam__answer {
+  top: calc(var(--crop) + 12px);
+  bottom: calc(var(--crop) + 12px);
+  left: 12px;
+  right: 12px;
+  transform: none;
+  overflow-y: auto;
 }
 
-/* expanded, the scene is exactly the picture's shape, which the query
-   above would count as wider: the panel keeps its 15% in from the
-   picture's sides */
+/* expanded: the panel keeps its 15% in from the picture's sides, centred
+   down it */
 .modal__layout.is-expanded .scam__answer {
   left: 15%;
   right: 15%;
