@@ -21,7 +21,7 @@ const copy = {
       figure: {
         src: img("color-qrs.png"),
         wide: true, // six QR codes in a grid: the full width, as reliable's matrix
-        caption: "QR&nbsp;code of different colors with different background",
+        caption: "QR&nbsp;codes of different colors with different backgrounds",
       },
     },
     {
